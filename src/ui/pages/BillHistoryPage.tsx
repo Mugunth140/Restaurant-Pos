@@ -130,22 +130,28 @@ const BillHistoryPage: React.FC = () => {
               <button className="button button-sm ghost" onClick={() => setSelected(null)}>Close</button>
             </div>
           </div>
-          <table className="table">
+          <table className="table bill-detail-table">
+            <colgroup>
+              <col className="col-item" />
+              <col className="col-qty" />
+              <col className="col-price" />
+              <col className="col-total" />
+            </colgroup>
             <thead>
               <tr>
-                <th style={{ width: "45%" }}>Item</th>
-                <th className="text-center" style={{ width: "15%" }}>Qty</th>
-                <th className="text-right" style={{ width: "20%" }}>Price</th>
-                <th className="text-right" style={{ width: "20%" }}>Total</th>
+                <th>Item</th>
+                <th className="text-center">Qty</th>
+                <th className="text-right">Price</th>
+                <th className="text-right">Total</th>
               </tr>
             </thead>
             <tbody>
               {items.map((it) => (
                 <tr key={it.product_id}>
-                  <td>{it.product_name}</td>
-                  <td className="text-center">{it.qty}</td>
-                  <td className="text-right">{fmt(it.unit_price_cents)}</td>
-                  <td className="text-right"><strong>{fmt(it.line_total_cents)}</strong></td>
+                  <td className="col-item">{it.product_name}</td>
+                  <td className="text-center col-qty">{it.qty}</td>
+                  <td className="text-right col-price">{fmt(it.unit_price_cents)}</td>
+                  <td className="text-right col-total"><strong>{fmt(it.line_total_cents)}</strong></td>
                 </tr>
               ))}
             </tbody>

@@ -11,10 +11,11 @@ type Props = {
 
 const InlineEditableRow: React.FC<Props> = ({ item, categories, onSave, onToggle, onDelete }) => {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Product>(item);
+  // default category to "Breakfast" when missing so selector shows a sensible default
+  const [draft, setDraft] = useState<Product>({ ...item, category: item.category ?? "Breakfast" });
 
   const save = () => { setEditing(false); onSave(draft); };
-  const cancel = () => { setEditing(false); setDraft(item); };
+  const cancel = () => { setEditing(false); setDraft({ ...item, category: item.category ?? "Breakfast" }); };
 
   return (
     <tr>
@@ -30,12 +31,11 @@ const InlineEditableRow: React.FC<Props> = ({ item, categories, onSave, onToggle
       </td>
       <td>
         {editing ? (
-          <select className="select" value={(draft.category ?? "") as string} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
-            <option value="">None</option>
+          <select className="select" value={(draft.category ?? "Breakfast") as string} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         ) : (
-          item.category || <span className="muted">—</span>
+          (item.category ?? "Breakfast") || <span className="muted">—</span>
         )}
       </td>
       <td className="text-right">

@@ -9,7 +9,8 @@ const MenuItemsPage: React.FC = () => {
   const [items, setItems] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
+  // default category for new items
+  const [category, setCategory] = useState("Breakfast");
   const [price, setPrice] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error">("success");
@@ -20,7 +21,9 @@ const MenuItemsPage: React.FC = () => {
       apiGet<Category[]>("/categories").catch(() => [] as Category[]),
     ]);
     setItems(products);
-    setCategories(cats.map((c) => c.name));
+    // ensure default categories are always available in the selector
+    // show only the three fixed categories in the selector
+    setCategories(["Breakfast", "Lunch", "Dinner"]);
   };
 
   useEffect(() => { void load(); }, []);
@@ -87,7 +90,6 @@ const MenuItemsPage: React.FC = () => {
             onKeyDown={(e) => { if (e.key === "Enter") add(); }}
           />
           <select className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">Category</option>
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <input

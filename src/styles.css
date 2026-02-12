@@ -168,15 +168,52 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
 .history-filters .input { min-width: 160px; }
 .history-filters .input[type="date"] { min-width: 150px; }
 .history-table { table-layout: fixed; }
-.history-table th,.history-table td { overflow: hidden; text-overflow: ellipsis; }
-.history-table .col-billno { width: 18%; }
-.history-table .col-money { width: 14%; text-align: right; }
-.history-table .col-date { width: 26%; }
-.history-table .col-actions { width: 14%; text-align: right; }
+.history-table th,.history-table td { overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.history-table th { font-weight: 600; }
+/* distribute columns evenly for Bill History rows */
+.history-table .col-billno { width: 20%; }
+.history-table .col-money { width: 15%; }
+/* explicitly size Total and Date for balanced spacing */
+.history-table col:nth-child(4) { width: 15%; }
+.history-table .col-date { width: 25%; }
+.history-table .col-actions { width: 10%; }
+/* Ensure headers and cells for money columns align to the right */
+.history-table th:nth-child(2),
+.history-table th:nth-child(3),
+.history-table th:nth-child(4),
+.history-table td:nth-child(2),
+.history-table td:nth-child(3),
+.history-table td:nth-child(4),
+.history-table td:nth-child(6) { text-align: right; }
+/* add a small gap between Total and Date while keeping Date right-aligned */
+.history-table th:nth-child(5),
+.history-table td:nth-child(5) { text-align: right; padding-left: 12px; }
+/* Bill number column should be left and vertically centered */
+.history-table th:nth-child(1),
+.history-table td:nth-child(1) { text-align: left; }
+/* Action cell (last column) should not show ellipsis or clip the button */
+.history-table td:last-child { overflow: visible; text-overflow: clip; white-space: nowrap; }
+.history-table td:last-child::after { content: none !important; }
+.history-table td:last-child .button { white-space: nowrap; }
+
 
 /* Bill Detail */
 .bill-detail { border: 2px solid var(--accent); }
 .bill-detail .card-header { display: flex; justify-content: space-between; align-items: center; }
+
+/* Bill detail table: fixed layout + explicit column widths to keep headers and rows aligned */
+.bill-detail .bill-detail-table { table-layout: fixed; }
+.bill-detail-table .col-item { width: 45%; text-align: left; }
+.bill-detail-table .col-qty { width: 15%; text-align: center; padding-left: 0.5rem; padding-right: 0.5rem; }
+.bill-detail-table td.col-qty, .bill-detail-table thead th.col-qty { text-align: start !important; vertical-align: middle; }
+.bill-detail-table .col-price { width: 20%; text-align: right; }
+.bill-detail-table .col-total { width: 20%; text-align: right; }
+/* ensure header labels align with numeric cells */
+.bill-detail-table thead th.text-right { text-align: right; }
+
+.bill-detail-summary { display: flex; gap: 18px; justify-content: flex-start; align-items: baseline; margin-top: 18px; }
+.bill-detail-summary > div { display: flex; gap: 8px; align-items: baseline; min-width: 120px; }
+.bill-detail-summary strong { display: inline-block; min-width: 84px; text-align: right; }
 .bill-detail-summary { display: flex; gap: 24px; padding: 12px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
 .bill-detail-summary div { font-size: 13px; color: var(--text-secondary); }
 .bill-detail-summary strong { font-size: 16px; color: var(--text); display: block; }
@@ -190,12 +227,39 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
 .menu-table .col-price { width: 14%; text-align: right; }
 .menu-table .col-status { width: 14%; text-align: center; }
 .menu-table .col-actions { width: 20%; text-align: center; }
+/* enforce header/body alignment by column index as a safeguard */
+.menu-table th:nth-child(4), .menu-table td:nth-child(4) { text-align: right; }
+.menu-table th:nth-child(5), .menu-table td:nth-child(5) { text-align: center; }
+.menu-table th:nth-child(6), .menu-table td:nth-child(6) { text-align: center; }
+/* vertically center status and action button groups */
+.menu-table td .status-dot { vertical-align: middle; margin-right: 8px; }
+.menu-table td .button { vertical-align: middle; }
+.menu-table td .row { justify-content: center; gap: 8px; }
+
 
 /* Backup Page */
+.backup-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px; }
 .backup-settings { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
 .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 12px; }
+.backup-hint { margin-top: 10px; font-size: 13px; color: var(--text-secondary); }
+.backup-meta { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 120px; gap: 10px; }
+.backup-meta div { display: flex; flex-direction: column; gap: 4px; }
+.backup-meta strong { font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.backup-selected {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .backup-files-table { font-size: 13px; }
 .backup-files-table td { padding: 8px 10px; }
+.backup-files-table tbody tr.selected { background: var(--list-active-bg); }
+.backup-restore-row { align-items: center; gap: 10px; }
 
 /* Pagination */
 .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 4px; padding-top: 12px; }
@@ -220,7 +284,9 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
   .split,.billing-split { grid-template-columns: 1fr; }
   .billing-right { position: static; }
   .add-item-form { grid-template-columns: 1fr; }
+  .backup-grid { grid-template-columns: 1fr; }
   .backup-settings { grid-template-columns: 1fr; }
+  .backup-meta { grid-template-columns: 1fr; }
   .history-filters { flex-direction: column; align-items: stretch; }
   .history-filters .input,.history-filters .button { width: 100%; }
   .sidebar {
