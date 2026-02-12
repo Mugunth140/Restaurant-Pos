@@ -1,109 +1,127 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "../../data/api";
 import type { Product } from "../../data/types";
 import InlineEditableRow from "../components/InlineEditableRow";
 
+type Category = { id: number; name: string; is_active: number };
+
 const MenuItemsPage: React.FC = () => {
   const [items, setItems] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [name, setName] = useState("");
-  const [mealPeriod, setMealPeriod] = useState<"Breakfast" | "Lunch" | "Dinner">(
-    "Breakfast",
-  );
-  const [price, setPrice] = useState("0");
+  const [category, setCategory] = useState("");
+  const [price, setPrice] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [statusType, setStatusType] = useState<"success" | "error">("success");
 
   const load = async () => {
-    const data = await apiGet<Product[]>("/products");
-    setItems(data);
+    const [products, cats] = await Promise.all([
+      apiGet<Product[]>("/products"),
+      apiGet<Category[]>("/categories").catch(() => [] as Category[]),
+    ]);
+    setItems(products);
+    setCategories(cats.map((c) => c.name));
   };
 
-  useEffect(() => {
-    void load();
-  }, []);
+  useEffect(() => { void load(); }, []);
+
+  const showStatus = (msg: string, type: "success" | "error" = "success") => {
+    setStatus(msg);
+    setStatusType(type);
+    setTimeout(() => setStatus(null), 3000);
+  };
 
   const add = async () => {
     if (!name.trim()) return;
-    setStatus(null);
     try {
       await apiPost("/products", {
         name: name.trim(),
-        category: mealPeriod,
+        category: category || null,
         price_cents: Math.round(Number(price || "0") * 100),
       });
-      setName("");
-      setMealPeriod("Breakfast");
-      setPrice("0");
+      setName(""); setCategory(""); setPrice("");
+      showStatus("Item added successfully");
       await load();
     } catch (e) {
-      setStatus(e instanceof Error ? e.message : "Failed to add item");
+      showStatus(e instanceof Error ? e.message : "Failed to add item", "error");
     }
   };
 
   const save = async (next: Product) => {
-    await apiPut(`/products/${next.id}`, next);
-    await load();
+    try {
+      await apiPut("/products/" + next.id, next);
+      showStatus("Item updated");
+      await load();
+    } catch (e) {
+      showStatus(e instanceof Error ? e.message : "Failed to update", "error");
+    }
   };
 
   const toggle = async (id: number, enabled: boolean) => {
-    await apiPut(`/products/${id}/availability`, { is_available: enabled ? 1 : 0 });
+    await apiPut("/products/" + id + "/availability", { is_available: enabled ? 1 : 0 });
     await load();
   };
 
   const remove = async (id: number) => {
-    setStatus(null);
     try {
-      await apiDelete(`/products/${id}`);
+      await apiDelete("/products/" + id);
+      showStatus("Item removed");
       await load();
     } catch (e) {
-      setStatus(e instanceof Error ? e.message : "Failed to delete item");
+      showStatus(e instanceof Error ? e.message : "Failed to delete", "error");
     }
   };
 
   return (
     <div>
       <div className="page-title">Menu Items</div>
+
       <div className="card">
-        <div className="row" style={{ gap: 16 }}>
+        <div className="card-header">Add New Item</div>
+        <div className="add-item-form">
           <input
             className="input"
-            placeholder="Product Name"
+            placeholder="Product name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            style={{ flex: 2, minWidth: 120 }}
+            onKeyDown={(e) => { if (e.key === "Enter") add(); }}
           />
-          <select
-            className="select"
-            value={mealPeriod}
-            onChange={(e) => setMealPeriod(e.target.value as typeof mealPeriod)}
-            style={{ width: 170, minWidth: 150 }}
-          >
-            <option value="Breakfast">Breakfast</option>
-            <option value="Lunch">Lunch</option>
-            <option value="Dinner">Dinner</option>
+          <select className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">Category</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <input
             className="input"
-            placeholder="Price"
+            placeholder="Price (₹)"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            style={{ flex: 1, minWidth: 80, textAlign: "right" }}
+            style={{ textAlign: "right" }}
+            onKeyDown={(e) => { if (e.key === "Enter") add(); }}
           />
-          <button className="button success" style={{ minWidth: 80 }} onClick={add}>
-            Add
-          </button>
+          <button className="button success" onClick={add}>Add Item</button>
         </div>
-        {status ? <div className="muted" style={{ marginTop: 8 }}>{status}</div> : null}
+        {status && <div className={"toast toast-" + statusType}>{status}</div>}
       </div>
+
       <div className="card">
-        <table className="table">
+        <div className="card-header">{items.length} Item{items.length !== 1 ? "s" : ""}</div>
+        <table className="table menu-table">
+          <colgroup>
+            <col className="col-no" />
+            <col className="col-name" />
+            <col className="col-category" />
+            <col className="col-price" />
+            <col className="col-status" />
+            <col className="col-actions" />
+          </colgroup>
           <thead>
             <tr>
-              <th style={{ textAlign: "center", width: "10%" }}>Item No</th>
-              <th style={{ textAlign: "left", width: "30%" }}>Name</th>
-              <th style={{ textAlign: "left", width: "18%" }}>Meals Period</th>
-              <th style={{ textAlign: "right", width: "14%" }}>Price</th>
-              <th style={{ textAlign: "center", width: "14%" }}>Availability</th>
-              <th style={{ textAlign: "center", width: "14%" }}></th>
+              <th className="text-center">No</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th className="text-right">Price</th>
+              <th className="text-center">Status</th>
+              <th className="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -111,6 +129,7 @@ const MenuItemsPage: React.FC = () => {
               <InlineEditableRow
                 key={it.id}
                 item={it}
+                categories={categories}
                 onSave={save}
                 onToggle={toggle}
                 onDelete={remove}
@@ -118,7 +137,9 @@ const MenuItemsPage: React.FC = () => {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">No items yet</td>
+                <td colSpan={6}>
+                  <div className="empty-state">No menu items yet. Add one above.</div>
+                </td>
               </tr>
             )}
           </tbody>

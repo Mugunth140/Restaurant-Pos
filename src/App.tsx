@@ -27,7 +27,7 @@ const App: React.FC = () => {
         >
           ☰
         </button>
-        <div className="brand">Meet & Eat</div>
+        <div className="brand"><img src="/src-tauri/icons/icon.png" alt="logo" className="brand-logo" /> Meet & Eat</div>
         <div style={{ width: 40 }} />
       </header>
 

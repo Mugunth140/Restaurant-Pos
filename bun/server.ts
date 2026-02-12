@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, renameSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import db from "./db";
 
@@ -57,6 +57,37 @@ const toDateOnly = (value: string | null): string | null => {
   const trimmed = value.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
   return trimmed;
+};
+
+const listDbBackups = (targetDir: string) => {
+  if (!existsSync(targetDir)) return [] as Array<{ name: string; path: string; modified_at: string; size_bytes: number }>;
+  const entries = readdirSync(targetDir, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".db"))
+    .map((entry) => {
+      const fullPath = join(targetDir, entry.name);
+      const st = statSync(fullPath);
+      return {
+        name: entry.name,
+        path: fullPath,
+        modified_at: st.mtime.toISOString(),
+        size_bytes: st.size,
+      };
+    })
+    .sort((a, b) => (a.modified_at < b.modified_at ? 1 : -1));
+};
+
+const resolveBackupSource = (sourceOrDir: string) => {
+  const raw = (sourceOrDir || "").trim();
+  if (!raw || !existsSync(raw)) return null;
+  const st = statSync(raw);
+  if (st.isFile()) {
+    return raw.toLowerCase().endsWith(".db") ? raw : null;
+  }
+  if (!st.isDirectory()) return null;
+  const backups = listDbBackups(raw);
+  if (backups.length === 0) return null;
+  return backups[0].path;
 };
 
 // ── backup logic ─────────────────────────────────────────────────────────────
@@ -153,13 +184,20 @@ Bun.serve({
          PRODUCTS
          ══════════════════════════════════════════════════════════════════ */
 
+      if (pathname === "/categories" && req.method === "GET") {
+        const rows = db
+          .prepare("SELECT id, name, is_active FROM categories ORDER BY name")
+          .all();
+        return json(rows);
+      }
+
       if (pathname === "/products/search" && req.method === "GET") {
         const q = searchParams.get("q") ?? "";
         const rows = db
           .prepare(
             `SELECT p.id, p.item_no, p.name, c.name as category, p.price_cents, p.is_available
              FROM products p LEFT JOIN categories c ON p.category_id = c.id
-             WHERE p.is_available = 1 AND p.name LIKE ?1
+             WHERE p.is_available = 1 AND (p.name LIKE ?1 OR CAST(p.item_no AS TEXT) LIKE ?1)
              ORDER BY (p.item_no IS NULL), p.item_no, p.name LIMIT 20`,
           )
           .all(`%${q}%`);
@@ -488,6 +526,13 @@ Bun.serve({
         return json({ ok: true });
       }
 
+      if (pathname === "/backup/files" && req.method === "GET") {
+        const targetDir =
+          searchParams.get("path") || getSetting("backup_path", DEFAULT_BACKUP_DIR);
+        const files = listDbBackups(targetDir);
+        return json({ files, backup_path: targetDir });
+      }
+
       if (pathname === "/backup/run" && req.method === "POST") {
         const body = (await req.json()) as { target?: string };
         const target =
@@ -497,13 +542,40 @@ Bun.serve({
       }
 
       if (pathname === "/backup/restore" && req.method === "POST") {
-        const body = (await req.json()) as { source: string };
-        if (!body.source || !existsSync(body.source)) {
-          return textRes("Backup file not found", 404);
+        const body = (await req.json()) as {
+          source?: string;
+          backup_path?: string;
+          file_name?: string;
+        };
+
+        const requestedSource =
+          body.source ||
+          (body.file_name && body.backup_path
+            ? join(body.backup_path, body.file_name)
+            : body.backup_path || "");
+
+        const source = resolveBackupSource(requestedSource);
+        if (!source) {
+          return textRes("Backup .db file not found", 404);
         }
-        const dst = DB_PATH;
-        cpSync(body.source, dst);
-        return json({ ok: true });
+
+        try {
+          db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+        } catch {}
+
+        try {
+          db.close();
+        } catch {}
+
+        try {
+          rmSync(`${DB_PATH}-wal`, { force: true });
+        } catch {}
+        try {
+          rmSync(`${DB_PATH}-shm`, { force: true });
+        } catch {}
+
+        cpSync(source, DB_PATH, { force: true });
+        return json({ ok: true, restored_from: source });
       }
 
       return textRes("Not found", 404);

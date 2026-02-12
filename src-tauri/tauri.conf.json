@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeDevCommand": "bash -lc 'if (command -v lsof >/dev/null 2>&1 && lsof -i :5173 -sTCP:LISTEN -t >/dev/null 2>&1) || (command -v ss >/dev/null 2>&1 && ss -ltnp 2>/dev/null | grep -q \":5173\") || (command -v curl >/dev/null 2>&1 && curl -sSf http://127.0.0.1:5173/ >/dev/null 2>&1); then echo \"dev server already running on :5173\"; else bun run dev; fi'",
+    "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "bun run build",
     "devPath": "http://localhost:5173",
     "distDir": "../dist"

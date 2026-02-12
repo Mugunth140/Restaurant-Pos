@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+﻿import React, { useCallback, useMemo, useState } from "react";
 import { apiGet, apiPost } from "../../data/api";
 import type { BillItem, Product } from "../../data/types";
 import BillSummary from "../components/BillSummary";
@@ -11,9 +11,10 @@ const BillingPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [billNo, setBillNo] = useState<string | null>(null);
 
-  const search = useCallback(async (q: string) => {
-    return apiGet<Product[]>(`/products/search?q=${encodeURIComponent(q)}`);
-  }, []);
+  const search = useCallback(
+    (q: string) => apiGet<Product[]>("/products/search?q=" + encodeURIComponent(q)),
+    [],
+  );
 
   const addItem = useCallback((p: Product) => {
     setItems((prev) => {
@@ -21,12 +22,8 @@ const BillingPage: React.FC = () => {
       if (existing) {
         return prev.map((x) =>
           x.product_id === p.id
-            ? {
-                ...x,
-                qty: x.qty + 1,
-                line_total_cents: (x.qty + 1) * x.unit_price_cents
-              }
-            : x
+            ? { ...x, qty: x.qty + 1, line_total_cents: (x.qty + 1) * x.unit_price_cents }
+            : x,
         );
       }
       return [
@@ -36,31 +33,22 @@ const BillingPage: React.FC = () => {
           product_name: p.name,
           unit_price_cents: p.price_cents,
           qty: 1,
-          line_total_cents: p.price_cents
-        }
+          line_total_cents: p.price_cents,
+        },
       ];
     });
+    setBillNo(null);
   }, []);
 
-  // (no numeric shortcut add)
-
-  const subtotal = useMemo(
-    () => items.reduce((sum, it) => sum + it.line_total_cents, 0),
-    [items]
-  );
-  const taxCents = useMemo(
-    () => Math.round((subtotal * taxRateBps) / 10000),
-    [subtotal, taxRateBps]
-  );
+  const subtotal = useMemo(() => items.reduce((s, it) => s + it.line_total_cents, 0), [items]);
+  const taxCents = useMemo(() => Math.round((subtotal * taxRateBps) / 10000), [subtotal, taxRateBps]);
   const total = subtotal + taxCents;
 
   const onQtyChange = (productId: number, qty: number) => {
     setItems((prev) =>
       prev.map((x) =>
-        x.product_id === productId
-          ? { ...x, qty, line_total_cents: qty * x.unit_price_cents }
-          : x
-      )
+        x.product_id === productId ? { ...x, qty, line_total_cents: qty * x.unit_price_cents } : x,
+      ),
     );
   };
 
@@ -75,7 +63,7 @@ const BillingPage: React.FC = () => {
     try {
       const res = await apiPost<{ bill_no: string }>("/bills", {
         items,
-        tax_rate_bps: taxRateBps
+        tax_rate_bps: taxRateBps,
       });
       setBillNo(res.bill_no);
       setItems([]);
@@ -84,15 +72,20 @@ const BillingPage: React.FC = () => {
     }
   };
 
+  const clearOrder = () => {
+    setItems([]);
+    setBillNo(null);
+  };
+
   return (
-    <div>
+    <div className="billing-page">
       <div className="page-title">Billing</div>
-      <div className="split">
+      <div className="split billing-split">
         <div>
           <ProductSearch onSelect={addItem} search={search} />
           <BillTable items={items} onQtyChange={onQtyChange} onRemove={onRemove} />
         </div>
-        <div>
+        <div className="billing-right">
           <BillSummary
             subtotal={subtotal}
             taxRateBps={taxRateBps}
@@ -100,19 +93,24 @@ const BillingPage: React.FC = () => {
             total={total}
             onTaxRateChange={setTaxRateBps}
           />
-          <div className="card">
-            <button className="button success" onClick={generateBill} disabled={saving}>
-              {saving ? "Saving…" : "Generate Bill"}
+          <div className="card billing-actions">
+            <button className="button success" onClick={generateBill} disabled={saving || items.length === 0}>
+              {saving ? "Saving" : "Generate Bill"}
             </button>
-            <button className="button" style={{ marginLeft: 8 }} onClick={() => window.print()}>
+            <button className="button" onClick={() => window.print()} disabled={items.length === 0}>
               Print
             </button>
-            {billNo && (
-              <div style={{ marginTop: 8 }}>
-                Bill saved: <strong>{billNo}</strong>
-              </div>
+            {items.length > 0 && (
+              <button className="button ghost" onClick={clearOrder}>
+                Clear
+              </button>
             )}
           </div>
+          {billNo && (
+            <div className="bill-saved-banner">
+               Bill <strong>{billNo}</strong> saved successfully
+            </div>
+          )}
         </div>
       </div>
     </div>
