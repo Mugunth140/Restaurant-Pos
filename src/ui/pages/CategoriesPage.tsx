@@ -23,7 +23,10 @@ const MenuItemsPage: React.FC = () => {
     setItems(products);
     // ensure default categories are always available in the selector
     // show only the three fixed categories in the selector
-    setCategories(["Breakfast", "Lunch", "Dinner"]);
+    const fixed = ["Breakfast", "Lunch", "Dinner"];
+    setCategories(fixed);
+    // ensure currently selected category is valid (fall back to Breakfast)
+    setCategory((c) => (c && fixed.includes(c) ? c : "Breakfast"));
   };
 
   useEffect(() => { void load(); }, []);
@@ -42,7 +45,7 @@ const MenuItemsPage: React.FC = () => {
         category: category || null,
         price_cents: Math.round(Number(price || "0") * 100),
       });
-      setName(""); setCategory(""); setPrice("");
+      setName(""); setCategory("Breakfast"); setPrice("");
       showStatus("Item added successfully");
       await load();
     } catch (e) {

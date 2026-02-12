@@ -19,6 +19,15 @@
       "icon": ["icons/icon.ico", "icons/icon.png", "icons/128x128.png", "icons/128x128@2x.png"],
       "identifier": "com.meateat.pos",
       "resources": ["../db/schema.sql"],
+      "msi": {
+        "per_machine": false
+      },
+      "nsis": {
+        "one_click": false,
+        "per_machine": false,
+        "allow_elevation": false,
+        "installer_icon": "icons/icon.ico"
+      },
       "windows": {
         "wix": {
           "language": "en-US"
