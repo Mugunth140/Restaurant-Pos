@@ -6,13 +6,24 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "Meet & Eat POS",
+    "productName": "Meet and Eat POS",
     "version": "1.0.0"
   },
   "tauri": {
     "bundle": {
+      "active": true,
+      "targets": ["msi", "nsis"],
+      "category": "Business",
+      "shortDescription": "Lightweight offline desktop POS",
+      "longDescription": "Meet & Eat POS is an offline-first desktop point-of-sale app with billing, menu, history, and backup management.",
+      "icon": ["icons/icon.ico", "icons/icon.png", "icons/128x128.png", "icons/128x128@2x.png"],
       "identifier": "com.meateat.pos",
-      "resources": ["../db/schema.sql"]
+      "resources": ["../db/schema.sql"],
+      "windows": {
+        "wix": {
+          "language": "en-US"
+        }
+      }
     },
     "windows": [
       {

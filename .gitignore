@@ -142,4 +142,14 @@ vite.config.ts.timestamp-*
 db/app.db
 backups/
 
+# Tauri / Rust build artifacts & bundles
 /src-tauri/target
+/src-tauri/target/**/bundle
+/src-tauri/target/**/wix
+/src-tauri/target/release/*.msi
+/src-tauri/target/release/*-setup.exe
+
+# Local tool caches (WiX binaries, etc.)
+.tools/
+
+# End of tauri-related ignores

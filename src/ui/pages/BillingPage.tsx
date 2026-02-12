@@ -5,10 +5,39 @@ import BillSummary from "../components/BillSummary";
 import BillTable from "../components/BillTable";
 import ProductSearch from "../components/ProductSearch";
 
+const THERMAL_PRINTER_NAME = "Rugtek printer";
+
+type TauriInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+
+type TauriGlobal = {
+  invoke?: TauriInvoke;
+  tauri?: {
+    invoke?: TauriInvoke;
+  };
+};
+
+type ReceiptPayload = {
+  billNo: string;
+  printedAt: string;
+  subtotalCents: number;
+  discountRateBps: number;
+  discountCents: number;
+  totalCents: number;
+  items: Array<{
+    name: string;
+    qty: number;
+    unitPriceCents: number;
+    lineTotalCents: number;
+  }>;
+};
+
 const BillingPage: React.FC = () => {
   const [items, setItems] = useState<BillItem[]>([]);
   const [discountRateBps, setDiscountRateBps] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [lastReceipt, setLastReceipt] = useState<ReceiptPayload | null>(null);
   const [billNo, setBillNo] = useState<string | null>(null);
 
   const search = useCallback(
@@ -56,21 +85,72 @@ const BillingPage: React.FC = () => {
     setItems((prev) => prev.filter((x) => x.product_id !== productId));
   };
 
+  const buildReceiptPayload = useCallback((billNumber: string, billItems: BillItem[]) => {
+    const now = new Date();
+    return {
+      billNo: billNumber,
+      printedAt: now.toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      subtotalCents: subtotal,
+      discountRateBps,
+      discountCents,
+      totalCents: total,
+      items: billItems.map((item) => ({
+        name: item.product_name,
+        qty: item.qty,
+        unitPriceCents: item.unit_price_cents,
+        lineTotalCents: item.line_total_cents,
+      })),
+    };
+  }, [discountCents, discountRateBps, subtotal, total]);
+
+  const printReceipt = useCallback(async (payload: ReceiptPayload) => {
+    const tauriWindow = window as Window & { __TAURI__?: TauriGlobal };
+    const invoke = tauriWindow.__TAURI__?.invoke ?? tauriWindow.__TAURI__?.tauri?.invoke;
+    if (!invoke) {
+      setPrintError("Direct thermal print works in Tauri desktop app only.");
+      return;
+    }
+
+    setPrinting(true);
+    setPrintError(null);
+    try {
+      await invoke("print_thermal_receipt", {
+        printerName: THERMAL_PRINTER_NAME,
+        payload,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to print receipt.";
+      setPrintError(message);
+    } finally {
+      setPrinting(false);
+    }
+  }, []);
+
   const generateBill = useCallback(async () => {
     if (items.length === 0) return;
+    const billItems = items.map((item) => ({ ...item }));
     setSaving(true);
     setBillNo(null);
     try {
       const res = await apiPost<{ bill_no: string }>("/bills", {
-        items,
+        items: billItems,
         discount_rate_bps: discountRateBps,
       });
+      const payload = buildReceiptPayload(res.bill_no, billItems);
+      setLastReceipt(payload);
+      await printReceipt(payload);
       setBillNo(res.bill_no);
       setItems([]);
     } finally {
       setSaving(false);
     }
-  }, [discountRateBps, items]);
+  }, [buildReceiptPayload, discountRateBps, items, printReceipt]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -120,11 +200,11 @@ const BillingPage: React.FC = () => {
             onDiscountRateChange={setDiscountRateBps}
           />
           <div className="card billing-actions">
-            <button className="button success" onClick={generateBill} disabled={saving || items.length === 0}>
-              {saving ? "Saving" : "Generate Bill"}
+            <button className="button success" onClick={generateBill} disabled={saving || printing || items.length === 0}>
+              {saving ? "Saving" : printing ? "Printing" : "Generate Bill"}
             </button>
-            <button className="button" onClick={() => window.print()} disabled={items.length === 0}>
-              Print
+            <button className="button" onClick={() => { if (lastReceipt) void printReceipt(lastReceipt); }} disabled={!lastReceipt || printing || saving}>
+              {printing ? "Printing" : "Reprint"}
             </button>
             {items.length > 0 && (
               <button className="button ghost" onClick={clearOrder}>
@@ -132,6 +212,11 @@ const BillingPage: React.FC = () => {
               </button>
             )}
           </div>
+          {printError && (
+            <div className="bill-saved-banner" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+              {printError}
+            </div>
+          )}
           {billNo && (
             <div className="bill-saved-banner">
                Bill <strong>{billNo}</strong> saved successfully

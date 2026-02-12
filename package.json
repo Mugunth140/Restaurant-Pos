@@ -10,7 +10,10 @@
     "backend": "bun run bun/server.ts",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:build:windows": "tauri build --bundles msi,nsis",
+    "tauri:build:msi": "tauri build --bundles msi",
+    "tauri:build:exe": "tauri build --bundles nsis"
   },
   "dependencies": {
     "react": "^18.3.1",
