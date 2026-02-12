@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from "react";
-import InlineEditableRow from "../components/InlineEditableRow";
 import { apiDelete, apiGet, apiPost, apiPut } from "../../data/api";
 import type { Product } from "../../data/types";
+import InlineEditableRow from "../components/InlineEditableRow";
 
-const CategoriesPage: React.FC = () => {
+const MenuItemsPage: React.FC = () => {
   const [items, setItems] = useState<Product[]>([]);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
+  const [mealPeriod, setMealPeriod] = useState<"Breakfast" | "Lunch" | "Dinner">(
+    "Breakfast",
+  );
   const [price, setPrice] = useState("0");
+  const [status, setStatus] = useState<string | null>(null);
 
   const load = async () => {
     const data = await apiGet<Product[]>("/products");
@@ -20,15 +23,20 @@ const CategoriesPage: React.FC = () => {
 
   const add = async () => {
     if (!name.trim()) return;
-    await apiPost("/products", {
-      name: name.trim(),
-      category: category.trim() || null,
-      price_cents: Math.round(Number(price || "0") * 100)
-    });
-    setName("");
-    setCategory("");
-    setPrice("0");
-    await load();
+    setStatus(null);
+    try {
+      await apiPost("/products", {
+        name: name.trim(),
+        category: mealPeriod,
+        price_cents: Math.round(Number(price || "0") * 100),
+      });
+      setName("");
+      setMealPeriod("Breakfast");
+      setPrice("0");
+      await load();
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Failed to add item");
+    }
   };
 
   const save = async (next: Product) => {
@@ -42,47 +50,60 @@ const CategoriesPage: React.FC = () => {
   };
 
   const remove = async (id: number) => {
-    await apiDelete(`/products/${id}`);
-    await load();
+    setStatus(null);
+    try {
+      await apiDelete(`/products/${id}`);
+      await load();
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Failed to delete item");
+    }
   };
 
   return (
     <div>
-      <div className="page-title">Categories</div>
+      <div className="page-title">Menu Items</div>
       <div className="card">
-        <div className="row">
+        <div className="row" style={{ gap: 16 }}>
           <input
             className="input"
             placeholder="Product Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            style={{ flex: 2, minWidth: 120 }}
           />
-          <input
-            className="input"
-            placeholder="Category (optional)"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          />
+          <select
+            className="select"
+            value={mealPeriod}
+            onChange={(e) => setMealPeriod(e.target.value as typeof mealPeriod)}
+            style={{ width: 170, minWidth: 150 }}
+          >
+            <option value="Breakfast">Breakfast</option>
+            <option value="Lunch">Lunch</option>
+            <option value="Dinner">Dinner</option>
+          </select>
           <input
             className="input"
             placeholder="Price"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
+            style={{ flex: 1, minWidth: 80, textAlign: "right" }}
           />
-          <button className="button success" onClick={add}>
+          <button className="button success" style={{ minWidth: 80 }} onClick={add}>
             Add
           </button>
         </div>
+        {status ? <div className="muted" style={{ marginTop: 8 }}>{status}</div> : null}
       </div>
       <div className="card">
         <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Availability</th>
-              <th></th>
+              <th style={{ textAlign: "center", width: "10%" }}>Item No</th>
+              <th style={{ textAlign: "left", width: "30%" }}>Name</th>
+              <th style={{ textAlign: "left", width: "18%" }}>Meals Period</th>
+              <th style={{ textAlign: "right", width: "14%" }}>Price</th>
+              <th style={{ textAlign: "center", width: "14%" }}>Availability</th>
+              <th style={{ textAlign: "center", width: "14%" }}></th>
             </tr>
           </thead>
           <tbody>
@@ -97,7 +118,7 @@ const CategoriesPage: React.FC = () => {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">No items yet</td>
+                <td colSpan={6} className="muted">No items yet</td>
               </tr>
             )}
           </tbody>
@@ -107,4 +128,4 @@ const CategoriesPage: React.FC = () => {
   );
 };
 
-export default CategoriesPage;
+export default MenuItemsPage;

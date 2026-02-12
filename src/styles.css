@@ -1,13 +1,18 @@
 :root {
   color-scheme: light;
-  --bg: #111315;
-  --panel: #1b1f23;
-  --text: #f5f5f5;
-  --muted: #a8b0b8;
-  --accent: #f59e0b;
-  --accent-2: #22c55e;
-  --danger: #ef4444;
-  --border: #2a2f35;
+  /* Light theme */
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #d97706;
+  --accent-2: #16a34a;
+  --danger: #dc2626;
+  --border: #e5e7eb;
+  --input-bg: #f9fafb;
+  --hover: #f3f4f6;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --list-active-bg: #eef2ff;
   --font: "Inter", system-ui, -apple-system, sans-serif;
   font-family: var(--font);
   font-size: 16px;
@@ -25,12 +30,24 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
 }
 
+.backdrop {
+  display: none;
+}
+
+.topbar {
+  display: none;
+}
+
+.mobile-only {
+  display: none;
+}
+
 .sidebar {
-  background: #0f1214;
+  background: var(--panel);
   border-right: 1px solid var(--border);
   padding: 16px 12px;
   display: flex;
@@ -57,13 +74,18 @@ body {
   cursor: pointer;
 }
 
+.nav-button:hover {
+  background: var(--hover);
+}
+
 .nav-button.active {
-  background: var(--panel);
+  background: var(--hover);
   border-color: var(--accent);
 }
 
 .main {
   padding: 16px 20px;
+  min-width: 0;
 }
 
 .page-title {
@@ -78,6 +100,7 @@ body {
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 12px;
+  box-shadow: var(--shadow);
 }
 
 .row {
@@ -92,7 +115,7 @@ body {
   height: 40px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: #0f1214;
+  background: var(--input-bg);
   color: var(--text);
   padding: 0 10px;
   font-size: 16px;
@@ -100,26 +123,30 @@ body {
 
 .button {
   cursor: pointer;
-  background: #1b1f23;
+  background: var(--panel);
+}
+
+.button:hover {
+  background: var(--hover);
 }
 
 .button.primary {
   background: var(--accent);
-  color: #1b1101;
-  border-color: #c37b06;
+  color: #ffffff;
+  border-color: #b45309;
   font-weight: 700;
 }
 
 .button.success {
   background: var(--accent-2);
-  color: #03200f;
+  color: #ffffff;
   border-color: #15803d;
   font-weight: 700;
 }
 
 .button.danger {
   background: var(--danger);
-  color: #2b0505;
+  color: #ffffff;
   border-color: #b91c1c;
   font-weight: 700;
 }
@@ -143,7 +170,7 @@ body {
 .badge {
   padding: 2px 8px;
   border-radius: 999px;
-  background: #0f1214;
+  background: var(--input-bg);
   border: 1px solid var(--border);
   font-size: 12px;
 }
@@ -159,12 +186,111 @@ body {
   overflow: auto;
 }
 
+/* Responsive layout */
+@media (max-width: 860px) {
+  .mobile-only {
+    display: block;
+  }
+
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .topbar .brand {
+    margin: 0;
+    padding: 0;
+    font-size: 18px;
+  }
+
+  .icon-button {
+    height: 40px;
+    width: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+
+  .icon-button:hover {
+    background: var(--hover);
+  }
+
+  .main {
+    padding: 12px;
+  }
+
+  .split {
+    grid-template-columns: 1fr;
+  }
+
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .input {
+    min-width: 180px;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(84vw, 320px);
+    z-index: 30;
+    transform: translateX(-110%);
+    transition: transform 180ms ease;
+    border-right: 1px solid var(--border);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.25);
+    z-index: 25;
+  }
+
+  .table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table th,
+  .table td {
+    white-space: nowrap;
+  }
+}
+
 @media print {
   body {
     background: #fff;
     color: #000;
   }
   .sidebar,
+  .topbar,
+  .backdrop,
   .no-print {
     display: none !important;
   }

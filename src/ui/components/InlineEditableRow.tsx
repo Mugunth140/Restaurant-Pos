@@ -19,6 +19,14 @@ const InlineEditableRow: React.FC<Props> = ({ item, onSave, onToggle, onDelete }
 
   return (
     <tr>
+      <td style={{ textAlign: "center" }}>
+        {item.item_no ? (
+          <span className="badge">{item.item_no}</span>
+        ) : (
+          <span className="muted">—</span>
+        )}
+      </td>
+
       <td>
         {editing ? (
           <input
@@ -32,16 +40,20 @@ const InlineEditableRow: React.FC<Props> = ({ item, onSave, onToggle, onDelete }
       </td>
       <td>
         {editing ? (
-          <input
-            className="input"
-            value={draft.category ?? ""}
+          <select
+            className="select"
+            value={(draft.category ?? "Breakfast") as string}
             onChange={(e) => setDraft({ ...draft, category: e.target.value })}
-          />
+          >
+            <option value="Breakfast">Breakfast</option>
+            <option value="Lunch">Lunch</option>
+            <option value="Dinner">Dinner</option>
+          </select>
         ) : (
           item.category || "—"
         )}
       </td>
-      <td>
+      <td style={{ textAlign: "right" }}>
         {editing ? (
           <input
             className="input"
@@ -52,12 +64,13 @@ const InlineEditableRow: React.FC<Props> = ({ item, onSave, onToggle, onDelete }
                 price_cents: Math.round(Number(e.target.value || "0") * 100)
               })
             }
+            style={{ textAlign: "right" }}
           />
         ) : (
           `₹${(item.price_cents / 100).toFixed(2)}`
         )}
       </td>
-      <td>
+      <td style={{ textAlign: "center" }}>
         <button
           className="button"
           onClick={() => onToggle(item.id, item.is_available !== 1)}
@@ -65,7 +78,7 @@ const InlineEditableRow: React.FC<Props> = ({ item, onSave, onToggle, onDelete }
           {item.is_available ? "Enabled" : "Disabled"}
         </button>
       </td>
-      <td>
+      <td style={{ textAlign: "center" }}>
         {editing ? (
           <div className="row">
             <button className="button success" onClick={save}>

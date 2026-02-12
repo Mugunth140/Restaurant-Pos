@@ -157,10 +157,10 @@ Bun.serve({
         const q = searchParams.get("q") ?? "";
         const rows = db
           .prepare(
-            `SELECT p.id, p.name, c.name as category, p.price_cents, p.is_available
+            `SELECT p.id, p.item_no, p.name, c.name as category, p.price_cents, p.is_available
              FROM products p LEFT JOIN categories c ON p.category_id = c.id
              WHERE p.is_available = 1 AND p.name LIKE ?1
-             ORDER BY p.name LIMIT 20`,
+             ORDER BY (p.item_no IS NULL), p.item_no, p.name LIMIT 20`,
           )
           .all(`%${q}%`);
         return json(rows);
@@ -169,9 +169,9 @@ Bun.serve({
       if (pathname === "/products" && req.method === "GET") {
         const rows = db
           .prepare(
-            `SELECT p.id, p.name, c.name as category, p.price_cents, p.is_available
+            `SELECT p.id, p.item_no, p.name, c.name as category, p.price_cents, p.is_available
              FROM products p LEFT JOIN categories c ON p.category_id = c.id
-             ORDER BY p.name`,
+             ORDER BY (p.item_no IS NULL), p.item_no, p.name`,
           )
           .all();
         return json(rows);
@@ -179,15 +179,71 @@ Bun.serve({
 
       if (pathname === "/products" && req.method === "POST") {
         const body = (await req.json()) as {
+          item_no?: number | null;
           name: string;
           category: string | null;
           price_cents: number;
         };
         const catId = resolveCategoryId(body.category);
-        db.prepare(
-          "INSERT INTO products(name, category_id, price_cents, is_available) VALUES(?1,?2,?3,1)",
-        ).run(body.name, catId, body.price_cents);
-        return json({ ok: true }, 201);
+        const rawNo = body.item_no;
+        const itemNo =
+          rawNo === null || rawNo === undefined || rawNo === ("" as unknown)
+            ? null
+            : Math.floor(Number(rawNo));
+        const itemNoNorm =
+          itemNo === null
+            ? null
+            : Number.isFinite(itemNo) && itemNo >= 1 && itemNo <= 9999
+              ? itemNo
+              : null;
+
+        const insert = db.prepare(
+          "INSERT INTO products(item_no, name, category_id, price_cents, is_available) VALUES(?1,?2,?3,?4,1)",
+        );
+        const selectMax = db.prepare(
+          "SELECT COALESCE(MAX(item_no), 0) as max_no FROM products",
+        );
+
+        // If item_no is omitted, auto-assign next number.
+        if (itemNoNorm === null) {
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const row = selectMax.get() as { max_no: number } | undefined;
+            const nextNo = Number(row?.max_no ?? 0) + 1;
+            if (!Number.isFinite(nextNo) || nextNo < 1 || nextNo > 9999) {
+              return textRes("Item No overflow", 400);
+            }
+            try {
+              insert.run(nextNo, body.name, catId, body.price_cents);
+              return json({ ok: true }, 201);
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : String(e);
+              // Race/dup: retry with updated max.
+              if (
+                msg.toLowerCase().includes("unique") &&
+                msg.toLowerCase().includes("item_no")
+              ) {
+                continue;
+              }
+              throw e;
+            }
+          }
+          return textRes("Failed to allocate Item No", 500);
+        }
+
+        // If provided explicitly, validate uniqueness.
+        try {
+          insert.run(itemNoNorm, body.name, catId, body.price_cents);
+          return json({ ok: true }, 201);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (
+            msg.toLowerCase().includes("unique") &&
+            msg.toLowerCase().includes("item_no")
+          ) {
+            return textRes("Item No already in use", 400);
+          }
+          throw e;
+        }
       }
 
       // /products/:id/availability
@@ -207,21 +263,52 @@ Bun.serve({
       if (prodMatch && req.method === "PUT") {
         const id = Number(prodMatch[1]);
         const body = (await req.json()) as {
+          item_no?: number | null;
           name: string;
           category: string | null;
           price_cents: number;
         };
         const catId = resolveCategoryId(body.category);
-        db.prepare(
-          "UPDATE products SET name=?1, category_id=?2, price_cents=?3, updated_at=datetime('now') WHERE id=?4",
-        ).run(body.name, catId, body.price_cents, id);
-        return json({ ok: true });
+        const rawNo = body.item_no;
+        const itemNo =
+          rawNo === null || rawNo === undefined || rawNo === ("" as unknown)
+            ? null
+            : Math.floor(Number(rawNo));
+        const itemNoNorm =
+          itemNo === null
+            ? null
+            : Number.isFinite(itemNo) && itemNo >= 1 && itemNo <= 9999
+              ? itemNo
+              : null;
+        try {
+          db.prepare(
+            "UPDATE products SET item_no=?1, name=?2, category_id=?3, price_cents=?4, updated_at=datetime('now') WHERE id=?5",
+          ).run(itemNoNorm, body.name, catId, body.price_cents, id);
+          return json({ ok: true });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.toLowerCase().includes("unique") && msg.toLowerCase().includes("item_no")) {
+            return textRes("Item No already in use", 400);
+          }
+          throw e;
+        }
       }
 
       if (prodMatch && req.method === "DELETE") {
         const id = Number(prodMatch[1]);
-        db.prepare("DELETE FROM products WHERE id = ?1").run(id);
-        return json({ ok: true });
+        try {
+          db.prepare("DELETE FROM products WHERE id = ?1").run(id);
+          return json({ ok: true });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          // If the product was used in any bill_items row, hard delete is blocked.
+          // In that case, soft-delete by marking it unavailable.
+          if (msg.toLowerCase().includes("foreign key") || msg.toLowerCase().includes("constraint failed")) {
+            db.prepare("UPDATE products SET is_available = 0 WHERE id = ?1").run(id);
+            return json({ ok: true, disabled: true });
+          }
+          throw e;
+        }
       }
 
       /* ══════════════════════════════════════════════════════════════════

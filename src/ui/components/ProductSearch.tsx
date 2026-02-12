@@ -77,7 +77,7 @@ const ProductSearch: React.FC<Props> = ({ onSelect, search }) => {
               className="row"
               style={{
                 padding: "6px 8px",
-                background: i === active ? "#20262b" : "transparent",
+                background: i === active ? "var(--list-active-bg)" : "transparent",
                 borderRadius: 6,
                 cursor: "pointer",
                 justifyContent: "space-between"
@@ -85,6 +85,7 @@ const ProductSearch: React.FC<Props> = ({ onSelect, search }) => {
               onMouseDown={() => onSelect(p)}
             >
               <div>
+                {p.item_no ? <span className="badge" style={{ marginRight: 8 }}>{p.item_no}</span> : null}
                 <strong>{p.name}</strong>
                 {p.category ? <span className="muted"> · {p.category}</span> : null}
               </div>

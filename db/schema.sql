@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_no INTEGER,
   name TEXT NOT NULL,
   category_id INTEGER,
   price_cents INTEGER NOT NULL,
@@ -28,9 +29,17 @@ CREATE TABLE IF NOT EXISTS products (
   FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
+-- Schema upgrade for existing databases (safe to re-run)
+ALTER TABLE products ADD COLUMN item_no INTEGER;
+
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
 CREATE INDEX IF NOT EXISTS idx_products_available ON products(is_available);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+
+-- Ensure item numbers are unique when set
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_item_no
+  ON products(item_no)
+  WHERE item_no IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS bills (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo, useState } from "react";
-import ProductSearch from "../components/ProductSearch";
-import BillTable from "../components/BillTable";
-import BillSummary from "../components/BillSummary";
 import { apiGet, apiPost } from "../../data/api";
 import type { BillItem, Product } from "../../data/types";
+import BillSummary from "../components/BillSummary";
+import BillTable from "../components/BillTable";
+import ProductSearch from "../components/ProductSearch";
 
 const BillingPage: React.FC = () => {
   const [items, setItems] = useState<BillItem[]>([]);
@@ -15,7 +15,7 @@ const BillingPage: React.FC = () => {
     return apiGet<Product[]>(`/products/search?q=${encodeURIComponent(q)}`);
   }, []);
 
-  const addItem = (p: Product) => {
+  const addItem = useCallback((p: Product) => {
     setItems((prev) => {
       const existing = prev.find((x) => x.product_id === p.id);
       if (existing) {
@@ -40,7 +40,9 @@ const BillingPage: React.FC = () => {
         }
       ];
     });
-  };
+  }, []);
+
+  // (no numeric shortcut add)
 
   const subtotal = useMemo(
     () => items.reduce((sum, it) => sum + it.line_total_cents, 0),
