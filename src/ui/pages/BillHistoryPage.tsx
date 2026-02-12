@@ -12,6 +12,9 @@ const BillHistoryPage: React.FC = () => {
   const [billNo, setBillNo] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [appliedBillNo, setAppliedBillNo] = useState("");
+  const [appliedStart, setAppliedStart] = useState("");
+  const [appliedEnd, setAppliedEnd] = useState("");
   const [selected, setSelected] = useState<Bill | null>(null);
   const [items, setItems] = useState<BillItem[]>([]);
 
@@ -19,18 +22,20 @@ const BillHistoryPage: React.FC = () => {
     const params = new URLSearchParams({
       page: String(page),
       limit: String(PAGE_SIZE),
-      bill_no: billNo,
-      start,
-      end
+      bill_no: appliedBillNo,
+      start: appliedStart,
+      end: appliedEnd,
     });
-    const data = await apiGet<{ rows: Bill[]; total: number }>(`/bills?${params}`);
+    const data = await apiGet<{ rows: Bill[]; total: number }>(
+      `/bills?${params}`,
+    );
     setBills(data.rows);
     setTotal(data.total);
   };
 
   useEffect(() => {
     void load();
-  }, [page]);
+  }, [page, appliedBillNo, appliedStart, appliedEnd]);
 
   const viewBill = async (bill: Bill) => {
     setSelected(bill);
@@ -61,7 +66,15 @@ const BillHistoryPage: React.FC = () => {
             value={end}
             onChange={(e) => setEnd(e.target.value)}
           />
-          <button className="button" onClick={() => { setPage(1); void load(); }}>
+          <button
+            className="button"
+            onClick={() => {
+              setAppliedBillNo(billNo);
+              setAppliedStart(start);
+              setAppliedEnd(end);
+              setPage(1);
+            }}
+          >
             Filter
           </button>
         </div>
@@ -95,12 +108,19 @@ const BillHistoryPage: React.FC = () => {
             ))}
             {bills.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">No bills found</td>
+                <td colSpan={6} className="muted">
+                  No bills found
+                </td>
               </tr>
             )}
           </tbody>
         </table>
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onChange={setPage}
+        />
       </div>
       {selected && (
         <div className="card">

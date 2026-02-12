@@ -1,4 +1,4 @@
-# Meat & Eat POS
+# Meet & Eat POS
 
 Lightweight offline desktop POS for low-end hardware.
 

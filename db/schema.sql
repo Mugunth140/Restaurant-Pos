@@ -1,4 +1,4 @@
--- SQLite schema for Meat & Eat POS
+-- SQLite schema for Meet & Eat POS
 -- Lightweight, indexed for fast lookup on low-end hardware
 
 PRAGMA journal_mode = WAL;

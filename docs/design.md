@@ -1,4 +1,4 @@
-# Meat & Eat POS — Lightweight Desktop Billing System
+# Meet & Eat POS — Lightweight Desktop Billing System
 
 ## Goals
 
@@ -178,9 +178,9 @@ Notes:
 
 - Scheduled backups via Tauri background task (timer persisted in `settings`).
 - Backups are file copies of `db/app.db` into:
-  - Local folder (default: `~/MeatAndEat/backups/`)
+  - Local folder (default: `~/MeetAndEat/backups/`)
   - Optional external drive path if available
-- File naming: `meat-eat-YYYYMMDD-HHMMSS.db`
+- File naming: `meet-eat-YYYYMMDD-HHMMSS.db`
 - Restore: select backup file -> replace active DB -> restart app.
 - Ensure safe copy: copy to temp then rename.
 
@@ -203,4 +203,4 @@ Notes:
 - `tax_rate_bps = 0`
 - `bill_seq = 0`
 - `backup_interval_minutes = 1440` (daily)
-- `backup_path = ~/MeatAndEat/backups`
+- `backup_path = ~/MeetAndEat/backups`

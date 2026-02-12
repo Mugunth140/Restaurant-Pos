@@ -9,7 +9,7 @@ type Props = {
 const Sidebar: React.FC<Props> = ({ active, onChange }) => {
   return (
     <aside className="sidebar">
-      <div className="brand">Meat & Eat</div>
+      <div className="brand">Meet & Eat</div>
       <button
         className={`nav-button ${active === "billing" ? "active" : ""}`}
         onClick={() => onChange("billing")}

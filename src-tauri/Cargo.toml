@@ -1,7 +1,7 @@
 [package]
 name = "meat-eat-pos"
 version = "1.0.0"
-description = "Lightweight POS for Meat & Eat"
+description = "Lightweight POS for Meet & Eat"
 edition = "2021"
 
 [build-dependencies]
