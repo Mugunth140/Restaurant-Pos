@@ -393,14 +393,14 @@ Bun.serve({
         if (items.length === 0) return textRes("No valid items", 400);
 
         const subtotal = items.reduce((s, it) => s + it.line_total_cents, 0);
-        const taxRateBps = Number(body.tax_rate_bps || 0);
-        const taxCents = Math.round((subtotal * taxRateBps) / 10_000);
-        const total = subtotal + taxCents;
+        const discountRateBps = Number(body.discount_rate_bps || 0);
+        const discountCents = Math.round((subtotal * discountRateBps) / 10_000);
+        const total = subtotal - discountCents;
 
         let billNo = "";
 
         const insertBill = db.prepare(
-          "INSERT INTO bills(bill_no,subtotal_cents,tax_rate_bps,tax_cents,total_cents) VALUES(?1,?2,?3,?4,?5)",
+          "INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,total_cents) VALUES(?1,?2,?3,?4,?5)",
         );
         const insertItem = db.prepare(
           "INSERT INTO bill_items(bill_id,product_id,product_name,unit_price_cents,qty,line_total_cents) VALUES(?1,?2,?3,?4,?5,?6)",
@@ -424,8 +424,8 @@ Bun.serve({
           const result = insertBill.run(
             billNo,
             subtotal,
-            taxRateBps,
-            taxCents,
+            discountRateBps,
+            discountCents,
             total,
           );
           const billId = Number(result.lastInsertRowid);
@@ -479,7 +479,7 @@ Bun.serve({
 
         const rows = db
           .prepare(
-            `SELECT id,bill_no,subtotal_cents,tax_rate_bps,tax_cents,total_cents,created_at
+            `SELECT id,bill_no,subtotal_cents,discount_rate_bps,discount_cents,total_cents,created_at
              FROM bills ${where}
              ORDER BY created_at DESC LIMIT ? OFFSET ?`,
           )

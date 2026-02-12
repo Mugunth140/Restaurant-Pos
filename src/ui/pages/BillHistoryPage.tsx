@@ -5,6 +5,23 @@ import Pagination from "../components/Pagination";
 
 const PAGE_SIZE = 15;
 const fmt = (cents: number) => "\u20B9" + (cents / 100).toFixed(2);
+const toSafeNumber = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+type BillCompat = Bill & {
+  tax_rate_bps?: number | null;
+  tax_cents?: number | null;
+  discount_rate_bps?: number | null;
+  discount_cents?: number | null;
+};
+
+const getDiscountCents = (bill: BillCompat) =>
+  toSafeNumber(bill.discount_cents ?? bill.tax_cents ?? 0);
+
+const getDiscountRateBps = (bill: BillCompat) =>
+  toSafeNumber(bill.discount_rate_bps ?? bill.tax_rate_bps ?? 0);
 
 const BillHistoryPage: React.FC = () => {
   const [bills, setBills] = useState<Bill[]>([]);
@@ -90,25 +107,29 @@ const BillHistoryPage: React.FC = () => {
             <tr>
               <th>Bill No</th>
               <th className="text-right">Subtotal</th>
-              <th className="text-right">Tax</th>
+              <th className="text-right">Discount</th>
               <th className="text-right">Total</th>
               <th>Date</th>
               <th className="text-right"></th>
             </tr>
           </thead>
           <tbody>
-            {bills.map((b) => (
-              <tr key={b.id}>
-                <td><strong>{b.bill_no}</strong></td>
-                <td className="text-right">{fmt(b.subtotal_cents)}</td>
-                <td className="text-right">{fmt(b.tax_cents)}</td>
-                <td className="text-right"><strong>{fmt(b.total_cents)}</strong></td>
-                <td className="muted">{b.created_at}</td>
-                <td className="text-right">
-                  <button className="button button-sm" onClick={() => viewBill(b)}>View</button>
-                </td>
-              </tr>
-            ))}
+            {bills.map((bill) => {
+              const b = bill as BillCompat;
+              const discountCents = getDiscountCents(b);
+              return (
+                <tr key={b.id}>
+                  <td><strong>{b.bill_no}</strong></td>
+                  <td className="text-right">{fmt(toSafeNumber(b.subtotal_cents))}</td>
+                  <td className="text-right">-{fmt(discountCents)}</td>
+                  <td className="text-right"><strong>{fmt(toSafeNumber(b.total_cents))}</strong></td>
+                  <td className="muted">{b.created_at}</td>
+                  <td className="text-right">
+                    <button className="button button-sm" onClick={() => viewBill(b)}>View</button>
+                  </td>
+                </tr>
+              );
+            })}
             {bills.length === 0 && (
               <tr>
                 <td colSpan={6}>
@@ -157,9 +178,12 @@ const BillHistoryPage: React.FC = () => {
             </tbody>
           </table>
           <div className="bill-detail-summary">
-            <div>Subtotal<strong>{fmt(selected.subtotal_cents)}</strong></div>
-            <div>Tax ({(selected.tax_rate_bps / 100).toFixed(2)}%)<strong>{fmt(selected.tax_cents)}</strong></div>
-            <div>Total<strong style={{ color: "var(--accent)" }}>{fmt(selected.total_cents)}</strong></div>
+            <div>Subtotal<strong>{fmt(toSafeNumber(selected.subtotal_cents))}</strong></div>
+            <div>
+              Discount ({(getDiscountRateBps(selected as BillCompat) / 100).toFixed(2)}%)
+              <strong>-{fmt(getDiscountCents(selected as BillCompat))}</strong>
+            </div>
+            <div>Total<strong style={{ color: "var(--accent)" }}>{fmt(toSafeNumber(selected.total_cents))}</strong></div>
           </div>
         </div>
       )}

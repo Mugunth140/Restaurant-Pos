@@ -159,7 +159,7 @@ async function main() {
         line_total_cents: unit * qty,
       };
     });
-    return { items, tax_rate_bps: opts.taxBps };
+    return { items, discount_rate_bps: opts.taxBps };
   }
 
   async function sendOnce(i: number) {

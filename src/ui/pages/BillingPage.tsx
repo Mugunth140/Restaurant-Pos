@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost } from "../../data/api";
 import type { BillItem, Product } from "../../data/types";
 import BillSummary from "../components/BillSummary";
@@ -7,7 +7,7 @@ import ProductSearch from "../components/ProductSearch";
 
 const BillingPage: React.FC = () => {
   const [items, setItems] = useState<BillItem[]>([]);
-  const [taxRateBps, setTaxRateBps] = useState(0);
+  const [discountRateBps, setDiscountRateBps] = useState(0);
   const [saving, setSaving] = useState(false);
   const [billNo, setBillNo] = useState<string | null>(null);
 
@@ -41,8 +41,8 @@ const BillingPage: React.FC = () => {
   }, []);
 
   const subtotal = useMemo(() => items.reduce((s, it) => s + it.line_total_cents, 0), [items]);
-  const taxCents = useMemo(() => Math.round((subtotal * taxRateBps) / 10000), [subtotal, taxRateBps]);
-  const total = subtotal + taxCents;
+  const discountCents = useMemo(() => Math.round((subtotal * discountRateBps) / 10000), [subtotal, discountRateBps]);
+  const total = subtotal - discountCents;
 
   const onQtyChange = (productId: number, qty: number) => {
     setItems((prev) =>
@@ -56,21 +56,47 @@ const BillingPage: React.FC = () => {
     setItems((prev) => prev.filter((x) => x.product_id !== productId));
   };
 
-  const generateBill = async () => {
+  const generateBill = useCallback(async () => {
     if (items.length === 0) return;
     setSaving(true);
     setBillNo(null);
     try {
       const res = await apiPost<{ bill_no: string }>("/bills", {
         items,
-        tax_rate_bps: taxRateBps,
+        discount_rate_bps: discountRateBps,
       });
       setBillNo(res.bill_no);
       setItems([]);
     } finally {
       setSaving(false);
     }
-  };
+  }, [discountRateBps, items]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (!saving && items.length > 0) {
+          void generateBill();
+        }
+        return;
+      }
+
+      if (e.key === "Tab" && !e.shiftKey) {
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl?.id === "billing-search-input") return;
+        e.preventDefault();
+        const searchInput = document.getElementById("billing-search-input") as HTMLInputElement | null;
+        searchInput?.focus();
+        searchInput?.select();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [generateBill, items.length, saving]);
 
   const clearOrder = () => {
     setItems([]);
@@ -82,16 +108,16 @@ const BillingPage: React.FC = () => {
       <div className="page-title">Billing</div>
       <div className="split billing-split">
         <div>
-          <ProductSearch onSelect={addItem} search={search} />
+          <ProductSearch onSelect={addItem} search={search} inputId="billing-search-input" />
           <BillTable items={items} onQtyChange={onQtyChange} onRemove={onRemove} />
         </div>
         <div className="billing-right">
           <BillSummary
             subtotal={subtotal}
-            taxRateBps={taxRateBps}
-            taxCents={taxCents}
+            discountRateBps={discountRateBps}
+            discountCents={discountCents}
             total={total}
-            onTaxRateChange={setTaxRateBps}
+            onDiscountRateChange={setDiscountRateBps}
           />
           <div className="card billing-actions">
             <button className="button success" onClick={generateBill} disabled={saving || items.length === 0}>

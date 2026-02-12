@@ -19,8 +19,8 @@ export type Bill = {
   id: number;
   bill_no: string;
   subtotal_cents: number;
-  tax_rate_bps: number;
-  tax_cents: number;
+  discount_rate_bps: number;
+  discount_cents: number;
   total_cents: number;
   created_at: string;
 };

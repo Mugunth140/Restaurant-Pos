@@ -4,9 +4,10 @@ import type { Product } from "../../data/types";
 type Props = {
   onSelect: (product: Product) => void;
   search: (q: string) => Promise<Product[]>;
+  inputId?: string;
 };
 
-const ProductSearch: React.FC<Props> = ({ onSelect, search }) => {
+const ProductSearch: React.FC<Props> = ({ onSelect, search, inputId }) => {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<Product[]>([]);
   const [active, setActive] = useState(0);
@@ -44,6 +45,7 @@ const ProductSearch: React.FC<Props> = ({ onSelect, search }) => {
     <div className="card">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <input
+          id={inputId}
           className="input"
           style={{ flex: 1 }}
           placeholder="Search by name or item no"

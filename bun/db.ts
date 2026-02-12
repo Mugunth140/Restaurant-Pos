@@ -52,4 +52,21 @@ if (existsSync(schemaPath)) {
   }
 }
 
+// Migration: Handle tax -> discount column rename for existing databases
+try {
+  const tableInfo = db
+    .prepare("PRAGMA table_info(bills)")
+    .all() as Array<{ name: string; type: string }>;
+  const hasOldColumns = tableInfo.some((col) => col.name === "tax_rate_bps");
+  const hasNewColumns = tableInfo.some((col) => col.name === "discount_rate_bps");
+
+  if (hasOldColumns && !hasNewColumns) {
+    // Migration: Rename old tax columns to discount columns
+    db.exec("ALTER TABLE bills RENAME COLUMN tax_rate_bps TO discount_rate_bps;");
+    db.exec("ALTER TABLE bills RENAME COLUMN tax_cents TO discount_cents;");
+  }
+} catch {
+  // ignore if migration fails (table might not exist yet)
+}
+
 export default db;

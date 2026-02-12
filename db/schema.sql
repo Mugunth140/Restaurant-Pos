@@ -45,8 +45,8 @@ CREATE TABLE IF NOT EXISTS bills (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   bill_no TEXT NOT NULL UNIQUE,
   subtotal_cents INTEGER NOT NULL,
-  tax_rate_bps INTEGER NOT NULL DEFAULT 0,
-  tax_cents INTEGER NOT NULL DEFAULT 0,
+  discount_rate_bps INTEGER NOT NULL DEFAULT 0,
+  discount_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -70,4 +70,4 @@ CREATE INDEX IF NOT EXISTS idx_bill_items_bill_id ON bill_items(bill_id);
 
 -- Bill number generation state
 INSERT OR IGNORE INTO settings(key, value) VALUES ('bill_seq', '0');
-INSERT OR IGNORE INTO settings(key, value) VALUES ('tax_rate_bps', '0');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('discount_rate_bps', '0');
