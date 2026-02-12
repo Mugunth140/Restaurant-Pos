@@ -13,14 +13,21 @@ const fmt = (cents: number) => "\u20B9" + (cents / 100).toFixed(2);
 const BillTable: React.FC<Props> = ({ items, onQtyChange, onRemove }) => (
   <div className="card">
     <div className="card-header">Current Order ({items.length} item{items.length !== 1 ? "s" : ""})</div>
-    <table className="table">
+    <table className="table bill-table">
+      <colgroup>
+        <col className="col-item" />
+        <col className="col-price" />
+        <col className="col-qty" />
+        <col className="col-total" />
+        <col className="col-actions" />
+      </colgroup>
       <thead>
         <tr>
-          <th style={{ width: "40%" }}>Item</th>
-          <th className="text-right" style={{ width: "15%" }}>Price</th>
-          <th className="text-center" style={{ width: "20%" }}>Qty</th>
-          <th className="text-right" style={{ width: "15%" }}>Total</th>
-          <th style={{ width: "10%" }}></th>
+          <th>Item</th>
+          <th className="text-right">Price</th>
+          <th className="text-center">Qty</th>
+          <th className="text-right">Total</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>

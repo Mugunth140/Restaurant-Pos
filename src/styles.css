@@ -211,6 +211,27 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
 /* ensure header labels align with numeric cells */
 .bill-detail-table thead th.text-right { text-align: right; }
 
+/* Current Order (Bill) table — make headers and cells align exactly */
+.bill-table { table-layout: fixed; }
+.bill-table .col-item { width: 40%; }
+.bill-table .col-price { width: 15%; }
+.bill-table .col-qty { width: 20%; }
+.bill-table .col-total { width: 15%; }
+.bill-table .col-actions { width: 10%; }
+.bill-table thead th { font-weight: 600; }
+.bill-table td, .bill-table th { vertical-align: middle; }
+/* enforce identical alignment for header and body per-column */
+.bill-table th:nth-child(1), .bill-table td:nth-child(1) { text-align: left; }
+.bill-table th:nth-child(2), .bill-table td:nth-child(2) { text-align: right; }
+.bill-table th:nth-child(3), .bill-table td:nth-child(3) { text-align: center; }
+.bill-table th:nth-child(4), .bill-table td:nth-child(4) { text-align: right; }
+.bill-table th:nth-child(5), .bill-table td:nth-child(5) { text-align: center; }
+/* center the qty stepper within its cell exactly */
+.bill-table td.col-qty { display: flex; justify-content: center; align-items: center; }
+.bill-table td .qty-stepper { margin: 0; }
+.bill-table td .button-danger { min-width: 36px; }
+
+
 .bill-detail-summary { display: flex; gap: 18px; justify-content: flex-start; align-items: baseline; margin-top: 18px; }
 .bill-detail-summary > div { display: flex; gap: 8px; align-items: baseline; min-width: 120px; }
 .bill-detail-summary strong { display: inline-block; min-width: 84px; text-align: right; }
