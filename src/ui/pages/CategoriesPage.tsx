@@ -40,17 +40,25 @@ const MenuItemsPage: React.FC = () => {
   };
 
   const add = async () => {
-    if (!name.trim()) return;
-    const priceCents = Math.round(Number(price || "0") * 100);
-    if (!Number.isFinite(priceCents) || priceCents < 0) {
-      showStatus("Enter a valid price", "error");
+    const trimmedName = name.trim();
+    const trimmedCategory = category.trim();
+    const trimmedPrice = price.trim();
+
+    if (!trimmedName || !trimmedCategory || !trimmedPrice) {
+      showStatus("Please fill all fields before adding an item", "error");
+      return;
+    }
+
+    const priceCents = Math.round(Number(trimmedPrice) * 100);
+    if (!Number.isFinite(priceCents) || priceCents <= 0) {
+      showStatus("Enter a valid price greater than 0", "error");
       return;
     }
     setSaving(true);
     try {
       await apiPost("/products", {
-        name: name.trim(),
-        category: category || null,
+        name: trimmedName,
+        category: trimmedCategory,
         price_cents: priceCents,
       });
       setName(""); setCategory("Breakfast"); setPrice("");
@@ -114,7 +122,11 @@ const MenuItemsPage: React.FC = () => {
             style={{ textAlign: "right" }}
             onKeyDown={(e) => { if (e.key === "Enter") add(); }}
           />
-          <button className="button success" onClick={add} disabled={saving}>
+          <button
+            className="button success"
+            onClick={add}
+            disabled={saving || !name.trim() || !category.trim() || !price.trim()}
+          >
             {saving ? "Adding" : "Add Item"}
           </button>
         </div>

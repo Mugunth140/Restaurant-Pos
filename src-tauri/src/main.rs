@@ -241,7 +241,6 @@ fn format_receipt(payload: &ReceiptPayload) -> String {
     l.push(line_two_col(&format!("Discount ({:.2}%)", (payload.discount_rate_bps as f64) / 100.0), &format!("-Rs {}", cents_to_rs(payload.discount_cents)), w));
     l.push(line_two_col("TOTAL", &format!("Rs {}", cents_to_rs(payload.total_cents)), w));
     l.push(sep(w));
-    l.push("Thank you. Visit again!".to_string());
     l.join("\r\n")
 }
 
@@ -256,10 +255,25 @@ fn do_print(printer: &str, payload: &ReceiptPayload) -> Result<(), String> {
     let mut raw: Vec<u8> = Vec::new();
     raw.extend_from_slice(&[0x1B, 0x40]); // ESC @ initialize
     raw.extend_from_slice(&[0x1B, 0x61, 0x01]); // ESC a 1 (center)
+    // Prominent branding: double-width + double-height + emphasized
+    raw.extend_from_slice(&[0x1D, 0x21, 0x11]); // GS ! n -> double width & double height
+    raw.extend_from_slice(&[0x1B, 0x45, 0x01]); // ESC E 1 -> emphasize on
     raw.extend_from_slice(b"MEET & EAT\r\n");
+    raw.extend_from_slice(&[0x1B, 0x45, 0x00]); // emphasize off
+    raw.extend_from_slice(&[0x1D, 0x21, 0x00]); // ensure normal size
+    // Slightly bold slogan
+    raw.extend_from_slice(&[0x1B, 0x45, 0x01]);
     raw.extend_from_slice(b"Fresh Food | Fast Service\r\n");
+    raw.extend_from_slice(&[0x1B, 0x45, 0x00]);
     raw.extend_from_slice(&[0x1B, 0x61, 0x00]); // ESC a 0 (left)
+
     raw.extend_from_slice(receipt.as_bytes());
+
+    // Centered thank-you line (printed after body)
+    raw.extend_from_slice(&[0x1B, 0x61, 0x01]);
+    raw.extend_from_slice(b"Thank you. Visit again!\r\n");
+    raw.extend_from_slice(&[0x1B, 0x61, 0x00]);
+
     raw.extend_from_slice(b"\r\n\r\n\r\n"); // bottom margin
     raw.extend_from_slice(&[0x1D, 0x56, 0x41, 0x03]); // GS V A n (cut after feed)
 
