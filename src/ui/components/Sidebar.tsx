@@ -23,7 +23,7 @@ const Sidebar: React.FC<Props> = ({ active, onChange, open = false, onClose }) =
 
   return (
     <aside className={"sidebar" + (open ? " open" : "")}>
-      <div className="brand"><img src="/src-tauri/icons/icon.png" alt="logo" className="brand-logo" /> Meet &amp; Eat</div>
+      <div className="brand">Meet &amp; Eat</div>
       {navItems.map((item) => (
         <button
           key={item.key}
