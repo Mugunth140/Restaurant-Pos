@@ -2,6 +2,13 @@
 
 Lightweight offline desktop POS for low-end hardware.
 
+## Architecture
+
+- Single-process desktop app (Tauri + Rust + SQLite)
+- No separate backend service required in production
+- Data location (Windows): `%APPDATA%/com.meetandeat.app/app.db`
+- Backups (Windows): `%APPDATA%/com.meetandeat.app/backups/`
+
 ## Requirements
 
 - Bun
@@ -10,7 +17,6 @@ Lightweight offline desktop POS for low-end hardware.
 ## Install
 
 1. `bun install`
-2. `bun run backend` (optional if running UI only)
 
 ## Run (development)
 
@@ -20,6 +26,22 @@ Lightweight offline desktop POS for low-end hardware.
 
 - `bun run tauri:build`
 - Windows installer (EXE + MSI): `bun run tauri:build:windows`
+
+## Production Readiness
+
+- SQLite is configured for production throughput: WAL, busy timeout, memory temp store, mmap, and tuned cache.
+- All bill creation writes are transactional.
+- Backup defaults are auto-initialized to AppData backup folder.
+- Release build uses size optimizations in `src-tauri/Cargo.toml`.
+
+### Capacity target
+
+This setup is suitable for your target of ~2000 receipts/day with ~200 menu items on a typical Windows POS machine.
+
+Recommended ops settings:
+- Keep at least 1 GB free disk space for DB + WAL + backups.
+- Run automatic backups daily (default 1440 minutes).
+- Keep the app on local disk (not network share).
 
 ## Troubleshooting installer policy blocks
 
@@ -32,6 +54,4 @@ If Windows shows "The system administrator has set policies to prevent this inst
 
 ## Notes
 
-- The Bun backend is started automatically by Tauri (see `src-tauri/src/main.rs`).
-- SQLite file is stored at `db/app.db`.
-- Backups are created under `backups/` by default.
+- The app uses direct Tauri IPC (`api_call`) to access Rust backend logic.
