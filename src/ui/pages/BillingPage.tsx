@@ -7,15 +7,6 @@ import ProductSearch from "../components/ProductSearch";
 
 const THERMAL_PRINTER_NAME = "Rugtek printer";
 
-type TauriInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
-
-type TauriGlobal = {
-  invoke?: TauriInvoke;
-  tauri?: {
-    invoke?: TauriInvoke;
-  };
-};
-
 type ReceiptPayload = {
   billNo: string;
   printedAt: string;
@@ -110,17 +101,10 @@ const BillingPage: React.FC = () => {
   }, [discountCents, discountRateBps, subtotal, total]);
 
   const printReceipt = useCallback(async (payload: ReceiptPayload) => {
-    const tauriWindow = window as Window & { __TAURI__?: TauriGlobal };
-    const invoke = tauriWindow.__TAURI__?.invoke ?? tauriWindow.__TAURI__?.tauri?.invoke;
-    if (!invoke) {
-      setPrintError("Direct thermal print works in Tauri desktop app only.");
-      return;
-    }
-
     setPrinting(true);
     setPrintError(null);
     try {
-      await invoke("print_thermal_receipt", {
+      await apiPost("/print", {
         printerName: THERMAL_PRINTER_NAME,
         payload,
       });

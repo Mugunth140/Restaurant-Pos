@@ -152,4 +152,7 @@ backups/
 # Local tool caches (WiX binaries, etc.)
 .tools/
 
+# Generated backend sidecar for bundled builds
+/src-tauri/bin/backend.exe
+
 # End of tauri-related ignores

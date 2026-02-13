@@ -1,6 +1,9 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync, statSync, writeFileSync, unlinkSync } from "node:fs";
 import { basename, join } from "node:path";
+import { tmpdir } from "node:os";
 import db from "./db";
+import { generateReceiptPdf } from "./receipt-pdf";
+import type { ReceiptPayload } from "./receipt-pdf";
 
 const PORT = Number(process.env.MEATEAT_POS_PORT || "7777");
 const DEFAULT_DB_DIR = join(process.cwd(), "db");
@@ -362,7 +365,7 @@ Bun.serve({
             qty: number;
             line_total_cents: number;
           }>;
-          tax_rate_bps: number;
+          discount_rate_bps: number;
         };
         const rawItems = Array.isArray(body.items) ? body.items : [];
         if (rawItems.length === 0) return textRes("No items", 400);
@@ -576,6 +579,77 @@ Bun.serve({
 
         cpSync(source, DB_PATH, { force: true });
         return json({ ok: true, restored_from: source });
+      }
+
+      /* ══════════════════════════════════════════════════════════════════
+         PRINT (SumatraPDF silent printing)
+         ══════════════════════════════════════════════════════════════════ */
+
+      if (pathname === "/print" && req.method === "POST") {
+        const body = (await req.json()) as {
+          printerName?: string;
+          payload: ReceiptPayload;
+        };
+        const printerName = (body.printerName || getSetting("printer_name", "Rugtek printer")).trim();
+        const payload = body.payload;
+        if (!payload || !payload.billNo) return textRes("Invalid receipt payload", 400);
+
+        // 1. Generate receipt PDF
+        const pdfBytes = await generateReceiptPdf(payload);
+        const tmpFile = join(tmpdir(), `meateat_receipt_${Date.now()}.pdf`);
+        writeFileSync(tmpFile, pdfBytes);
+
+        // 2. Locate SumatraPDF.exe
+        const envPath = (process.env.SUMATRA_PDF_PATH || "").trim();
+        const candidates = [
+          envPath,
+          join(process.cwd(), "tools", "SumatraPDF.exe"),
+          "C:\\Program Files\\SumatraPDF\\SumatraPDF.exe",
+          "C:\\Program Files (x86)\\SumatraPDF\\SumatraPDF.exe",
+          join(process.env.LOCALAPPDATA || "", "SumatraPDF", "SumatraPDF.exe"),
+        ].filter(Boolean);
+
+        let sumatraPath = "";
+        for (const candidate of candidates) {
+          if (candidate && existsSync(candidate)) {
+            sumatraPath = candidate;
+            break;
+          }
+        }
+        if (!sumatraPath) {
+          try { unlinkSync(tmpFile); } catch {}
+          return textRes(
+            "SumatraPDF.exe not found. Place it in the tools/ folder or set SUMATRA_PDF_PATH env variable.",
+            500,
+          );
+        }
+
+        // 3. Print silently via SumatraPDF
+        try {
+          const proc = Bun.spawn([
+            sumatraPath,
+            "-print-to", printerName,
+            "-silent",
+            "-print-settings", "noscale,portrait",
+            tmpFile,
+          ], { stdout: "pipe", stderr: "pipe" });
+
+          const exitCode = await proc.exited;
+          // Clean up temp file after printing
+          setTimeout(() => { try { unlinkSync(tmpFile); } catch {} }, 3000);
+
+          if (exitCode !== 0) {
+            const stderr = await new Response(proc.stderr).text();
+            return textRes(`SumatraPDF exited with code ${exitCode}: ${stderr}`, 500);
+          }
+          return json({ ok: true });
+        } catch (e: unknown) {
+          try { unlinkSync(tmpFile); } catch {}
+          return textRes(
+            `Print failed: ${e instanceof Error ? e.message : String(e)}`,
+            500,
+          );
+        }
       }
 
       return textRes("Not found", 404);

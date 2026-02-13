@@ -14,7 +14,10 @@ const InlineEditableRow: React.FC<Props> = ({ item, categories, onSave, onToggle
   // default category to "Breakfast" when missing so selector shows a sensible default
   const [draft, setDraft] = useState<Product>({ ...item, category: item.category ?? "Breakfast" });
 
-  const save = () => { setEditing(false); onSave(draft); };
+  const save = () => {
+    setEditing(false);
+    onSave({ ...draft, category: (draft.category ?? "Breakfast") as string });
+  };
   const cancel = () => { setEditing(false); setDraft({ ...item, category: item.category ?? "Breakfast" }); };
 
   return (

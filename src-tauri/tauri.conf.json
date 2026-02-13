@@ -1,7 +1,7 @@
 {
   "build": {
     "beforeDevCommand": "bun run dev",
-    "beforeBuildCommand": "bun run build",
+    "beforeBuildCommand": "bun run build && bun run backend:compile",
     "devPath": "http://localhost:5173",
     "distDir": "../dist"
   },
@@ -12,22 +12,13 @@
   "tauri": {
     "bundle": {
       "active": true,
-      "targets": ["msi", "nsis"],
+      "targets": ["nsis"],
       "category": "Business",
       "shortDescription": "Lightweight offline desktop POS",
       "longDescription": "Meet & Eat POS is an offline-first desktop point-of-sale app with billing, menu, history, and backup management.",
       "icon": ["icons/icon.ico", "icons/icon.png", "icons/128x128.png", "icons/128x128@2x.png"],
       "identifier": "com.meateat.pos",
-      "resources": ["../db/schema.sql"],
-      "msi": {
-        "per_machine": false
-      },
-      "nsis": {
-        "one_click": false,
-        "per_machine": false,
-        "allow_elevation": false,
-        "installer_icon": "icons/icon.ico"
-      },
+      "resources": ["../db/schema.sql", "bin/backend.exe"],
       "windows": {
         "wix": {
           "language": "en-US"

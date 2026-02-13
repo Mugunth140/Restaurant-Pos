@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "backend": "bun run bun/server.ts",
+    "backend:compile": "bun build bun/server.ts --compile --minify --outfile src-tauri/bin/backend.exe",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
@@ -16,6 +17,7 @@
     "tauri:build:exe": "tauri build --bundles nsis"
   },
   "dependencies": {
+    "pdf-lib": "^1.17.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

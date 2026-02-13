@@ -176,7 +176,9 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![print_thermal_receipt])
         .setup(|app| {
-            // Spawn Bun backend (local only)
+            // Spawn backend:
+            // - dev: `bun run bun/server.ts`
+            // - production bundle: `bin/backend.exe` resource
             let cwd = std::env::current_dir().unwrap_or_default();
             let exe_dir = std::env::current_exe()
                 .ok()
@@ -212,17 +214,38 @@ fn main() {
                 schema_path = data_dir.join("schema.sql");
             }
             let _ = create_dir_all(&data_dir);
-            let _child = Command::new("bun")
-                .current_dir(&app_dir)
-                .env("MEATEAT_POS_DATA_DIR", &data_dir)
-                .env("POS_DATA_DIR", &data_dir)
-                .env("MEATEAT_POS_SCHEMA_PATH", &schema_path)
-                .env("POS_SCHEMA_PATH", &schema_path)
-                .arg("run")
-                .arg("bun/server.ts")
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn();
+
+            let dev_server = app_dir.join("bun").join("server.ts");
+            let bundled_backend = app.path_resolver().resolve_resource("bin/backend.exe");
+
+            let mut backend_cmd = if dev_server.exists() {
+                let mut cmd = Command::new("bun");
+                cmd.current_dir(&app_dir)
+                    .arg("run")
+                    .arg("bun/server.ts");
+                Some(cmd)
+            } else if let Some(path) = bundled_backend {
+                if path.exists() {
+                    let mut cmd = Command::new(path);
+                    cmd.current_dir(&app_dir);
+                    Some(cmd)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            if let Some(cmd) = backend_cmd.as_mut() {
+                let _child = cmd
+                    .env("MEATEAT_POS_DATA_DIR", &data_dir)
+                    .env("POS_DATA_DIR", &data_dir)
+                    .env("MEATEAT_POS_SCHEMA_PATH", &schema_path)
+                    .env("POS_SCHEMA_PATH", &schema_path)
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .spawn();
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -3,30 +3,32 @@ import { apiDelete, apiGet, apiPost, apiPut } from "../../data/api";
 import type { Product } from "../../data/types";
 import InlineEditableRow from "../components/InlineEditableRow";
 
-type Category = { id: number; name: string; is_active: number };
+const FIXED_CATEGORIES = ["Breakfast", "Lunch", "Dinner"];
 
 const MenuItemsPage: React.FC = () => {
   const [items, setItems] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(FIXED_CATEGORIES);
   const [name, setName] = useState("");
   // default category for new items
   const [category, setCategory] = useState("Breakfast");
   const [price, setPrice] = useState("");
+  const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error">("success");
 
   const load = async () => {
-    const [products, cats] = await Promise.all([
-      apiGet<Product[]>("/products"),
-      apiGet<Category[]>("/categories").catch(() => [] as Category[]),
-    ]);
-    setItems(products);
-    // ensure default categories are always available in the selector
-    // show only the three fixed categories in the selector
-    const fixed = ["Breakfast", "Lunch", "Dinner"];
-    setCategories(fixed);
-    // ensure currently selected category is valid (fall back to Breakfast)
-    setCategory((c) => (c && fixed.includes(c) ? c : "Breakfast"));
+    // always keep the three fixed categories available even if APIs fail
+    setCategories(FIXED_CATEGORIES);
+    setCategory((c) => (c && FIXED_CATEGORIES.includes(c) ? c : "Breakfast"));
+
+    const productsResult = await Promise.allSettled([apiGet<Product[]>("/products")]);
+
+    if (productsResult[0].status === "fulfilled") {
+      setItems(productsResult[0].value);
+    } else {
+      // keep previous list to avoid wiping UI on temporary backend/network failures
+      showStatus("Unable to refresh menu items. Please check backend connection.", "error");
+    }
   };
 
   useEffect(() => { void load(); }, []);
@@ -39,17 +41,26 @@ const MenuItemsPage: React.FC = () => {
 
   const add = async () => {
     if (!name.trim()) return;
+    const priceCents = Math.round(Number(price || "0") * 100);
+    if (!Number.isFinite(priceCents) || priceCents < 0) {
+      showStatus("Enter a valid price", "error");
+      return;
+    }
+    setSaving(true);
     try {
       await apiPost("/products", {
         name: name.trim(),
         category: category || null,
-        price_cents: Math.round(Number(price || "0") * 100),
+        price_cents: priceCents,
       });
       setName(""); setCategory("Breakfast"); setPrice("");
       showStatus("Item added successfully");
       await load();
     } catch (e) {
-      showStatus(e instanceof Error ? e.message : "Failed to add item", "error");
+      const msg = e instanceof Error ? e.message : "Failed to add item";
+      showStatus(msg.includes("fetch") ? "Cannot reach backend. Start app backend and retry." : msg, "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -103,7 +114,9 @@ const MenuItemsPage: React.FC = () => {
             style={{ textAlign: "right" }}
             onKeyDown={(e) => { if (e.key === "Enter") add(); }}
           />
-          <button className="button success" onClick={add}>Add Item</button>
+          <button className="button success" onClick={add} disabled={saving}>
+            {saving ? "Adding" : "Add Item"}
+          </button>
         </div>
         {status && <div className={"toast toast-" + statusType}>{status}</div>}
       </div>

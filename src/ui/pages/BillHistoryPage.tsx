@@ -93,6 +93,52 @@ const BillHistoryPage: React.FC = () => {
         </div>
       </div>
 
+      {selected && (
+        <div className="card bill-detail">
+          <div className="card-header">
+            <span>Bill #{selected.bill_no}</span>
+            <div className="row" style={{ gap: 6 }}>
+              <button className="button button-sm" onClick={() => window.print()}>Reprint</button>
+              <button className="button button-sm ghost" onClick={() => setSelected(null)}>Close</button>
+            </div>
+          </div>
+          <table className="table bill-detail-table">
+            <colgroup>
+              <col className="col-item" />
+              <col className="col-qty" />
+              <col className="col-price" />
+              <col className="col-total" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th className="text-center">Qty</th>
+                <th className="text-right">Price</th>
+                <th className="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it) => (
+                <tr key={it.product_id}>
+                  <td className="col-item">{it.product_name}</td>
+                  <td className="text-center col-qty">{it.qty}</td>
+                  <td className="text-right col-price">{fmt(it.unit_price_cents)}</td>
+                  <td className="text-right col-total"><strong>{fmt(it.line_total_cents)}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="bill-detail-summary">
+            <div>Subtotal<strong>{fmt(toSafeNumber(selected.subtotal_cents))}</strong></div>
+            <div>
+              Discount ({(getDiscountRateBps(selected as BillCompat) / 100).toFixed(2)}%)
+              <strong>-{fmt(getDiscountCents(selected as BillCompat))}</strong>
+            </div>
+            <div>Total<strong style={{ color: "var(--accent)" }}>{fmt(toSafeNumber(selected.total_cents))}</strong></div>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <table className="table history-table">
           <colgroup>
@@ -141,52 +187,6 @@ const BillHistoryPage: React.FC = () => {
         </table>
         <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
       </div>
-
-      {selected && (
-        <div className="card bill-detail">
-          <div className="card-header">
-            <span>Bill #{selected.bill_no}</span>
-            <div className="row" style={{ gap: 6 }}>
-              <button className="button button-sm" onClick={() => window.print()}>Reprint</button>
-              <button className="button button-sm ghost" onClick={() => setSelected(null)}>Close</button>
-            </div>
-          </div>
-          <table className="table bill-detail-table">
-            <colgroup>
-              <col className="col-item" />
-              <col className="col-qty" />
-              <col className="col-price" />
-              <col className="col-total" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th className="text-center">Qty</th>
-                <th className="text-right">Price</th>
-                <th className="text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <tr key={it.product_id}>
-                  <td className="col-item">{it.product_name}</td>
-                  <td className="text-center col-qty">{it.qty}</td>
-                  <td className="text-right col-price">{fmt(it.unit_price_cents)}</td>
-                  <td className="text-right col-total"><strong>{fmt(it.line_total_cents)}</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="bill-detail-summary">
-            <div>Subtotal<strong>{fmt(toSafeNumber(selected.subtotal_cents))}</strong></div>
-            <div>
-              Discount ({(getDiscountRateBps(selected as BillCompat) / 100).toFixed(2)}%)
-              <strong>-{fmt(getDiscountCents(selected as BillCompat))}</strong>
-            </div>
-            <div>Total<strong style={{ color: "var(--accent)" }}>{fmt(toSafeNumber(selected.total_cents))}</strong></div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
