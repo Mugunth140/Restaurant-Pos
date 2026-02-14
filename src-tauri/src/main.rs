@@ -258,9 +258,13 @@ fn do_print(printer: &str, payload: &ReceiptPayload) -> Result<(), String> {
     // Prominent branding: double-width + double-height + emphasized
     raw.extend_from_slice(&[0x1D, 0x21, 0x11]); // GS ! n -> double width & double height
     raw.extend_from_slice(&[0x1B, 0x45, 0x01]); // ESC E 1 -> emphasize on
-    raw.extend_from_slice(b"MEET & EAT\r\n");
+    raw.extend_from_slice(b"Meet & Eat Cafe\r\n");
     raw.extend_from_slice(&[0x1B, 0x45, 0x00]); // emphasize off
     raw.extend_from_slice(&[0x1D, 0x21, 0x00]); // ensure normal size
+    raw.extend_from_slice(b"11, Tank Street, Thudiyalur Road,\r\n");
+    raw.extend_from_slice(b"VN Pudar, Chinnavedampatti,\r\n");
+    raw.extend_from_slice(b"Saravanapatti, Coimbatore - 641035.\r\n");
+    raw.extend_from_slice(b"ph: 8925541808, 7743908902\r\n");
     // Slightly bold slogan
     raw.extend_from_slice(&[0x1B, 0x45, 0x01]);
     raw.extend_from_slice(b"Fresh Food | Fast Service\r\n");

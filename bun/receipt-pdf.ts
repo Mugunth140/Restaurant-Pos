@@ -63,6 +63,10 @@ function separator(width: number): string {
 function formatReceiptLines(payload: ReceiptPayload): string[] {
   const lines: string[] = [];
 
+  lines.push(center("11, Tank Street, Thudiyalur Road,", WIDTH));
+  lines.push(center("VN Pudar, Chinnavedampatti,", WIDTH));
+  lines.push(center("Saravanapatti, Coimbatore - 641035.", WIDTH));
+  lines.push(center("ph: 8925541808, 7743908902", WIDTH));
   lines.push(center("Fresh Food | Fast Service", WIDTH));
   lines.push(separator(WIDTH));
   lines.push(lineTwoCol(`Bill: ${payload.billNo}`, payload.printedAt, WIDTH));
@@ -123,7 +127,7 @@ export async function generateReceiptPdf(
   const boldFont = await pdfDoc.embedFont(StandardFonts.CourierBold);
   const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-  const title = "MEET & EAT";
+  const title = "Meet & Eat Cafe";
   const titleWidth = boldFont.widthOfTextAtSize(title, titleSize);
   page.drawText(title, {
     x: (pageWidth - titleWidth) / 2,

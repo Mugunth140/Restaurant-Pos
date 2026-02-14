@@ -1,13 +1,29 @@
 ﻿import React, { useEffect, useState } from "react";
-import { apiGet } from "../../data/api";
+import { apiGet, apiPost } from "../../data/api";
 import type { Bill, BillItem } from "../../data/types";
 import Pagination from "../components/Pagination";
 
 const PAGE_SIZE = 15;
+const THERMAL_PRINTER_NAME = "Rugtek printer";
 const fmt = (cents: number) => "\u20B9" + (cents / 100).toFixed(2);
 const toSafeNumber = (value: unknown) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+};
+
+type ReceiptPayload = {
+  billNo: string;
+  printedAt: string;
+  subtotalCents: number;
+  discountRateBps: number;
+  discountCents: number;
+  totalCents: number;
+  items: Array<{
+    name: string;
+    qty: number;
+    unitPriceCents: number;
+    lineTotalCents: number;
+  }>;
 };
 
 type BillCompat = Bill & {
@@ -35,6 +51,8 @@ const BillHistoryPage: React.FC = () => {
   const [appliedEnd, setAppliedEnd] = useState("");
   const [selected, setSelected] = useState<Bill | null>(null);
   const [items, setItems] = useState<BillItem[]>([]);
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   const applyFilters = () => {
     let s = start, e = end;
@@ -65,8 +83,42 @@ const BillHistoryPage: React.FC = () => {
 
   const viewBill = async (bill: Bill) => {
     setSelected(bill);
+    setPrintError(null);
     const data = await apiGet<{ items: BillItem[] }>("/bills/" + bill.id);
     setItems(data.items);
+  };
+
+  const reprintSelected = async () => {
+    if (!selected || items.length === 0) return;
+    const selectedBill = selected as BillCompat;
+    const payload: ReceiptPayload = {
+      billNo: selected.bill_no,
+      printedAt: String(selected.created_at),
+      subtotalCents: toSafeNumber(selected.subtotal_cents),
+      discountRateBps: getDiscountRateBps(selectedBill),
+      discountCents: getDiscountCents(selectedBill),
+      totalCents: toSafeNumber(selected.total_cents),
+      items: items.map((item) => ({
+        name: item.product_name,
+        qty: item.qty,
+        unitPriceCents: item.unit_price_cents,
+        lineTotalCents: item.line_total_cents,
+      })),
+    };
+
+    setPrinting(true);
+    setPrintError(null);
+    try {
+      await apiPost("/print", {
+        printerName: THERMAL_PRINTER_NAME,
+        payload,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to print receipt.";
+      setPrintError(message);
+    } finally {
+      setPrinting(false);
+    }
   };
 
   const hasFilters = appliedBillNo || appliedStart || appliedEnd;
@@ -98,10 +150,17 @@ const BillHistoryPage: React.FC = () => {
           <div className="card-header">
             <span>Bill #{selected.bill_no}</span>
             <div className="row" style={{ gap: 6 }}>
-              <button className="button button-sm" onClick={() => window.print()}>Reprint</button>
+              <button className="button button-sm" onClick={() => { void reprintSelected(); }} disabled={printing || items.length === 0}>
+                {printing ? "Printing" : "Reprint"}
+              </button>
               <button className="button button-sm ghost" onClick={() => setSelected(null)}>Close</button>
             </div>
           </div>
+          {printError && (
+            <div className="bill-saved-banner" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+              {printError}
+            </div>
+          )}
           <table className="table bill-detail-table">
             <colgroup>
               <col className="col-item" />
