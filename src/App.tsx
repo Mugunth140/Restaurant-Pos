@@ -2,7 +2,7 @@ import React, { Suspense, useMemo, useState } from "react";
 import { pages } from "./app/lazy";
 import Sidebar from "./ui/components/Sidebar";
 
-export type PageKey = "billing" | "categories" | "history" | "backup";
+export type PageKey = "billing" | "categories" | "history" | "analytics" | "backup";
 
 const App: React.FC = () => {
   const [page, setPage] = useState<PageKey>("billing");

@@ -12,6 +12,7 @@ const navItems: { key: PageKey; label: string }[] = [
   { key: "billing", label: "Billing" },
   { key: "categories", label: "Menu Items" },
   { key: "history", label: "Bill History" },
+  { key: "analytics", label: "Payments" },
   { key: "backup", label: "Backup" },
 ];
 

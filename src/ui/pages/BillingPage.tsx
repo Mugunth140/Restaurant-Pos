@@ -1,11 +1,12 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost } from "../../data/api";
-import type { BillItem, Product } from "../../data/types";
+import type { BillItem, PaymentMode, Product } from "../../data/types";
 import BillSummary from "../components/BillSummary";
 import BillTable from "../components/BillTable";
 import ProductSearch from "../components/ProductSearch";
 
 const THERMAL_PRINTER_NAME = "Rugtek printer";
+const fmt = (cents: number) => `₹${(cents / 100).toFixed(2)}`;
 
 type ReceiptPayload = {
   billNo: string;
@@ -30,6 +31,15 @@ const BillingPage: React.FC = () => {
   const [printError, setPrintError] = useState<string | null>(null);
   const [lastReceipt, setLastReceipt] = useState<ReceiptPayload | null>(null);
   const [billNo, setBillNo] = useState<string | null>(null);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("cash");
+  const [splitCashInput, setSplitCashInput] = useState("");
+  const [splitOnlineInput, setSplitOnlineInput] = useState("");
+
+  const parseInputToCents = (value: string) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.round(n * 100);
+  };
 
   const search = useCallback(
     (q: string) => apiGet<Product[]>("/products/search?q=" + encodeURIComponent(q)),
@@ -63,6 +73,12 @@ const BillingPage: React.FC = () => {
   const subtotal = useMemo(() => items.reduce((s, it) => s + it.line_total_cents, 0), [items]);
   const discountCents = useMemo(() => Math.round((subtotal * discountRateBps) / 10000), [subtotal, discountRateBps]);
   const total = subtotal - discountCents;
+  const splitCashCents = useMemo(() => parseInputToCents(splitCashInput), [splitCashInput]);
+  const splitOnlineCents = useMemo(() => parseInputToCents(splitOnlineInput), [splitOnlineInput]);
+  const isSplitMode = paymentMode === "split";
+  const splitTotalCents = splitCashCents + splitOnlineCents;
+  const splitDiffCents = total - splitTotalCents;
+  const splitMatchesTotal = !isSplitMode || splitDiffCents === 0;
 
   const onQtyChange = (productId: number, qty: number) => {
     setItems((prev) =>
@@ -118,23 +134,33 @@ const BillingPage: React.FC = () => {
 
   const generateBill = useCallback(async () => {
     if (items.length === 0) return;
+    if (isSplitMode && !splitMatchesTotal) {
+      setPrintError("Split amount must exactly match bill total.");
+      return;
+    }
     const billItems = items.map((item) => ({ ...item }));
     setSaving(true);
     setBillNo(null);
+    setPrintError(null);
     try {
       const res = await apiPost<{ bill_no: string }>("/bills", {
         items: billItems,
         discount_rate_bps: discountRateBps,
+        payment_mode: paymentMode,
+        split_cash_cents: isSplitMode ? splitCashCents : undefined,
+        split_online_cents: isSplitMode ? splitOnlineCents : undefined,
       });
       const payload = buildReceiptPayload(res.bill_no, billItems);
       setLastReceipt(payload);
       await printReceipt(payload);
       setBillNo(res.bill_no);
       setItems([]);
+      setSplitCashInput("");
+      setSplitOnlineInput("");
     } finally {
       setSaving(false);
     }
-  }, [buildReceiptPayload, discountRateBps, items, printReceipt]);
+  }, [buildReceiptPayload, discountRateBps, isSplitMode, items, paymentMode, printReceipt, splitCashCents, splitMatchesTotal, splitOnlineCents]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -165,6 +191,8 @@ const BillingPage: React.FC = () => {
   const clearOrder = () => {
     setItems([]);
     setBillNo(null);
+    setSplitCashInput("");
+    setSplitOnlineInput("");
   };
 
   return (
@@ -176,6 +204,63 @@ const BillingPage: React.FC = () => {
           <BillTable items={items} onQtyChange={onQtyChange} onRemove={onRemove} />
         </div>
         <div className="billing-right">
+          <div className="card payment-mode-card">
+            <div className="payment-mode-row">
+              <label htmlFor="payment-mode" className="muted">Payment</label>
+              <select
+                id="payment-mode"
+                className="select"
+                value={paymentMode}
+                onChange={(e) => {
+                  const next = e.target.value as PaymentMode;
+                  setPaymentMode(next);
+                  if (next !== "split") {
+                    setSplitCashInput("");
+                    setSplitOnlineInput("");
+                  }
+                }}
+              >
+                <option value="cash">Cash</option>
+                <option value="online">Online</option>
+                <option value="split">Split</option>
+              </select>
+            </div>
+            {isSplitMode && (
+              <div className="split-payment-grid">
+                <div>
+                  <label className="muted" htmlFor="split-cash">Cash amount</label>
+                  <input
+                    id="split-cash"
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={splitCashInput}
+                    onChange={(e) => setSplitCashInput(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="muted" htmlFor="split-online">Online amount</label>
+                  <input
+                    id="split-online"
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={splitOnlineInput}
+                    onChange={(e) => setSplitOnlineInput(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className={"split-tally " + (splitMatchesTotal ? "ok" : "warn")}>
+                  <span>Total: {fmt(total)}</span>
+                  <span>Entered: {fmt(splitTotalCents)}</span>
+                  <span>Difference: {fmt(Math.abs(splitDiffCents))}</span>
+                </div>
+              </div>
+            )}
+          </div>
           <BillSummary
             subtotal={subtotal}
             discountRateBps={discountRateBps}
@@ -184,7 +269,7 @@ const BillingPage: React.FC = () => {
             onDiscountRateChange={setDiscountRateBps}
           />
           <div className="card billing-actions">
-            <button className="button success" onClick={generateBill} disabled={saving || printing || items.length === 0}>
+            <button className="button success" onClick={generateBill} disabled={saving || printing || items.length === 0 || !splitMatchesTotal}>
               {saving ? "Saving" : printing ? "Printing" : "Generate Bill"}
             </button>
             <button className="button" onClick={() => { if (lastReceipt) void printReceipt(lastReceipt); }} disabled={!lastReceipt || printing || saving}>

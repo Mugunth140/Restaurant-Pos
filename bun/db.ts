@@ -65,6 +65,21 @@ try {
     db.exec("ALTER TABLE bills RENAME COLUMN tax_rate_bps TO discount_rate_bps;");
     db.exec("ALTER TABLE bills RENAME COLUMN tax_cents TO discount_cents;");
   }
+
+  const hasPaymentMode = tableInfo.some((col) => col.name === "payment_mode");
+  if (!hasPaymentMode) {
+    db.exec("ALTER TABLE bills ADD COLUMN payment_mode TEXT NOT NULL DEFAULT 'cash';");
+  }
+
+  const hasSplitCash = tableInfo.some((col) => col.name === "split_cash_cents");
+  if (!hasSplitCash) {
+    db.exec("ALTER TABLE bills ADD COLUMN split_cash_cents INTEGER NOT NULL DEFAULT 0;");
+  }
+
+  const hasSplitOnline = tableInfo.some((col) => col.name === "split_online_cents");
+  if (!hasSplitOnline) {
+    db.exec("ALTER TABLE bills ADD COLUMN split_online_cents INTEGER NOT NULL DEFAULT 0;");
+  }
 } catch {
   // ignore if migration fails (table might not exist yet)
 }

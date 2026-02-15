@@ -47,9 +47,17 @@ CREATE TABLE IF NOT EXISTS bills (
   subtotal_cents INTEGER NOT NULL,
   discount_rate_bps INTEGER NOT NULL DEFAULT 0,
   discount_cents INTEGER NOT NULL DEFAULT 0,
+  payment_mode TEXT NOT NULL DEFAULT 'cash',
+  split_cash_cents INTEGER NOT NULL DEFAULT 0,
+  split_online_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Schema upgrade for existing databases (safe to re-run)
+ALTER TABLE bills ADD COLUMN payment_mode TEXT NOT NULL DEFAULT 'cash';
+ALTER TABLE bills ADD COLUMN split_cash_cents INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE bills ADD COLUMN split_online_cents INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_bills_created_at ON bills(created_at);
 CREATE INDEX IF NOT EXISTS idx_bills_bill_no ON bills(bill_no);

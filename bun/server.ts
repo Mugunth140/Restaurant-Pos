@@ -366,6 +366,9 @@ Bun.serve({
             line_total_cents: number;
           }>;
           discount_rate_bps: number;
+          payment_mode?: string;
+          split_cash_cents?: number;
+          split_online_cents?: number;
         };
         const rawItems = Array.isArray(body.items) ? body.items : [];
         if (rawItems.length === 0) return textRes("No items", 400);
@@ -399,11 +402,31 @@ Bun.serve({
         const discountRateBps = Number(body.discount_rate_bps || 0);
         const discountCents = Math.round((subtotal * discountRateBps) / 10_000);
         const total = subtotal - discountCents;
+        const paymentModeRaw = String(body.payment_mode || "cash").toLowerCase();
+        const paymentMode = ["cash", "online", "split"].includes(paymentModeRaw)
+          ? paymentModeRaw
+          : "cash";
+        const splitCashRaw = Number(body.split_cash_cents ?? 0);
+        const splitOnlineRaw = Number(body.split_online_cents ?? 0);
+        let splitCashCents = Number.isFinite(splitCashRaw) ? Math.max(0, Math.floor(splitCashRaw)) : 0;
+        let splitOnlineCents = Number.isFinite(splitOnlineRaw) ? Math.max(0, Math.floor(splitOnlineRaw)) : 0;
+
+        if (paymentMode === "split") {
+          if (splitCashCents + splitOnlineCents !== total) {
+            return textRes("Split amounts must match total", 400);
+          }
+        } else if (paymentMode === "cash") {
+          splitCashCents = total;
+          splitOnlineCents = 0;
+        } else if (paymentMode === "online") {
+          splitCashCents = 0;
+          splitOnlineCents = total;
+        }
 
         let billNo = "";
 
         const insertBill = db.prepare(
-          "INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,total_cents) VALUES(?1,?2,?3,?4,?5)",
+          "INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
         );
         const insertItem = db.prepare(
           "INSERT INTO bill_items(bill_id,product_id,product_name,unit_price_cents,qty,line_total_cents) VALUES(?1,?2,?3,?4,?5,?6)",
@@ -429,6 +452,9 @@ Bun.serve({
             subtotal,
             discountRateBps,
             discountCents,
+            paymentMode,
+            splitCashCents,
+            splitOnlineCents,
             total,
           );
           const billId = Number(result.lastInsertRowid);
@@ -482,7 +508,7 @@ Bun.serve({
 
         const rows = db
           .prepare(
-            `SELECT id,bill_no,subtotal_cents,discount_rate_bps,discount_cents,total_cents,created_at
+            `SELECT id,bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents,created_at
              FROM bills ${where}
              ORDER BY created_at DESC LIMIT ? OFFSET ?`,
           )
@@ -500,6 +526,52 @@ Bun.serve({
           )
           .all(id);
         return json({ items: rows });
+      }
+
+      if (billMatch && req.method === "DELETE") {
+        const id = Number(billMatch[1]);
+        const result = db.prepare("DELETE FROM bills WHERE id = ?1").run(id);
+        if (Number(result.changes || 0) === 0) {
+          return textRes("Bill not found", 404);
+        }
+        return json({ ok: true });
+      }
+
+      if (pathname === "/analytics/payments" && req.method === "GET") {
+        const row = db
+          .prepare(
+            `SELECT
+                COALESCE(SUM(CASE WHEN payment_mode = 'cash' THEN 1 ELSE 0 END), 0) as cash_bill_count,
+                COALESCE(SUM(CASE WHEN payment_mode = 'online' THEN 1 ELSE 0 END), 0) as online_bill_count,
+                COALESCE(SUM(CASE WHEN payment_mode = 'split' THEN 1 ELSE 0 END), 0) as split_bill_count,
+                COALESCE(SUM(split_cash_cents), 0) as cash_total_cents,
+                COALESCE(SUM(split_online_cents), 0) as online_total_cents,
+                COALESCE(SUM(CASE WHEN payment_mode = 'split' THEN total_cents ELSE 0 END), 0) as split_total_cents
+             FROM bills`,
+          )
+          .get() as {
+            cash_bill_count: number;
+            online_bill_count: number;
+            split_bill_count: number;
+            cash_total_cents: number;
+            online_total_cents: number;
+            split_total_cents: number;
+          } | undefined;
+
+        const cash = {
+          bill_count: Number(row?.cash_bill_count || 0),
+          total_cents: Number(row?.cash_total_cents || 0),
+        };
+        const online = {
+          bill_count: Number(row?.online_bill_count || 0),
+          total_cents: Number(row?.online_total_cents || 0),
+        };
+        const split = {
+          bill_count: Number(row?.split_bill_count || 0),
+          total_cents: Number(row?.split_total_cents || 0),
+        };
+
+        return json({ cash, online, split });
       }
 
       /* ══════════════════════════════════════════════════════════════════

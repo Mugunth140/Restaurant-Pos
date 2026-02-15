@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS bills (
   subtotal_cents INTEGER NOT NULL,
   discount_rate_bps INTEGER NOT NULL DEFAULT 0,
   discount_cents INTEGER NOT NULL DEFAULT 0,
+    payment_mode TEXT NOT NULL DEFAULT 'cash',
+    split_cash_cents INTEGER NOT NULL DEFAULT 0,
+    split_online_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -104,6 +107,9 @@ fn init_db(path: &PathBuf) -> Result<Connection, String> {
     )
     .map_err(|e| format!("DB pragma init failed: {e}"))?;
     let _ = conn.execute_batch("ALTER TABLE products ADD COLUMN item_no INTEGER;");
+    let _ = conn.execute_batch("ALTER TABLE bills ADD COLUMN payment_mode TEXT NOT NULL DEFAULT 'cash';");
+    let _ = conn.execute_batch("ALTER TABLE bills ADD COLUMN split_cash_cents INTEGER NOT NULL DEFAULT 0;");
+    let _ = conn.execute_batch("ALTER TABLE bills ADD COLUMN split_online_cents INTEGER NOT NULL DEFAULT 0;");
     conn.execute_batch(SCHEMA).map_err(|e| format!("Schema init failed: {e}"))?;
     let _ = conn.execute_batch("PRAGMA optimize;");
     Ok(conn)
@@ -551,6 +557,27 @@ fn api_call(
             let dr = b["discount_rate_bps"].as_i64().unwrap_or(0);
             let dc = ((subtotal as f64 * dr as f64) / 10_000.0).round() as i64;
             let total = subtotal - dc;
+            let payment_mode_raw = b["payment_mode"].as_str().unwrap_or("cash").to_lowercase();
+            let payment_mode = match payment_mode_raw.as_str() {
+                "cash" | "online" | "split" => payment_mode_raw,
+                _ => "cash".to_string(),
+            };
+            let split_cash_raw = b["split_cash_cents"].as_i64().unwrap_or(0);
+            let split_online_raw = b["split_online_cents"].as_i64().unwrap_or(0);
+            let mut split_cash_cents = split_cash_raw.max(0);
+            let mut split_online_cents = split_online_raw.max(0);
+
+            if payment_mode == "split" {
+                if split_cash_cents + split_online_cents != total {
+                    return Err("Split amounts must match total".to_string());
+                }
+            } else if payment_mode == "cash" {
+                split_cash_cents = total;
+                split_online_cents = 0;
+            } else if payment_mode == "online" {
+                split_cash_cents = 0;
+                split_online_cents = total;
+            }
 
             with_db(state.inner(), |conn| {
                 let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
@@ -558,7 +585,7 @@ fn api_call(
                 tx.execute("UPDATE settings SET value = CAST(value AS INTEGER) + 1 WHERE key = 'bill_seq'", []).map_err(|e| e.to_string())?;
                 let seq: i64 = tx.query_row("SELECT value FROM settings WHERE key = 'bill_seq'", [], |r| r.get::<_, String>(0).map(|v| v.parse::<i64>().unwrap_or(1))).unwrap_or(1);
                 let bill_no = format!("MNE-{:06}", seq);
-                tx.execute("INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,total_cents) VALUES(?1,?2,?3,?4,?5)", params![bill_no, subtotal, dr, dc, total]).map_err(|e| e.to_string())?;
+                tx.execute("INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)", params![bill_no, subtotal, dr, dc, payment_mode, split_cash_cents, split_online_cents, total]).map_err(|e| e.to_string())?;
                 let bill_id = tx.last_insert_rowid();
                 for it in &items {
                     tx.execute("INSERT INTO bill_items(bill_id,product_id,product_name,unit_price_cents,qty,line_total_cents) VALUES(?1,?2,?3,?4,?5,?6)", params![bill_id, it.pid, it.pname, it.unit, it.qty, it.lt]).map_err(|e| e.to_string())?;
@@ -588,7 +615,7 @@ fn api_call(
             let cparams: Vec<&dyn rusqlite::types::ToSql> = bv.iter().map(|v| v as &dyn rusqlite::types::ToSql).collect();
             let total: i64 = cs.query_row(cparams.as_slice(), |r| r.get(0)).unwrap_or(0);
 
-            let dsql = format!("SELECT id,bill_no,subtotal_cents,discount_rate_bps,discount_cents,total_cents,created_at FROM bills {} ORDER BY created_at DESC LIMIT ? OFFSET ?", wsql);
+            let dsql = format!("SELECT id,bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents,created_at FROM bills {} ORDER BY created_at DESC LIMIT ? OFFSET ?", wsql);
             let mut ds = conn.prepare(&dsql).map_err(|e| e.to_string())?;
             let offset = (page - 1) * limit;
             let mut ap: Vec<Box<dyn rusqlite::types::ToSql>> = bv.iter().map(|v| Box::new(v.clone()) as Box<dyn rusqlite::types::ToSql>).collect();
@@ -596,9 +623,52 @@ fn api_call(
             ap.push(Box::new(offset));
             let pr: Vec<&dyn rusqlite::types::ToSql> = ap.iter().map(|v| v.as_ref()).collect();
 
-            let rows: Vec<Value> = ds.query_map(pr.as_slice(), |r| Ok(json!({ "id": r.get::<_, i64>(0)?, "bill_no": r.get::<_, String>(1)?, "subtotal_cents": r.get::<_, i64>(2)?, "discount_rate_bps": r.get::<_, i64>(3)?, "discount_cents": r.get::<_, i64>(4)?, "total_cents": r.get::<_, i64>(5)?, "created_at": r.get::<_, String>(6)? }))).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+            let rows: Vec<Value> = ds.query_map(pr.as_slice(), |r| Ok(json!({ "id": r.get::<_, i64>(0)?, "bill_no": r.get::<_, String>(1)?, "subtotal_cents": r.get::<_, i64>(2)?, "discount_rate_bps": r.get::<_, i64>(3)?, "discount_cents": r.get::<_, i64>(4)?, "payment_mode": r.get::<_, String>(5)?, "split_cash_cents": r.get::<_, i64>(6)?, "split_online_cents": r.get::<_, i64>(7)?, "total_cents": r.get::<_, i64>(8)?, "created_at": r.get::<_, String>(9)? }))).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
             Ok(json!({ "rows": rows, "total": total }))
         }),
+
+        ("GET", "/analytics/payments") => with_db(state.inner(), |conn| {
+            let row = conn
+                .query_row(
+                    "SELECT
+                        COALESCE(SUM(CASE WHEN payment_mode = 'cash' THEN 1 ELSE 0 END), 0) as cash_bill_count,
+                        COALESCE(SUM(CASE WHEN payment_mode = 'online' THEN 1 ELSE 0 END), 0) as online_bill_count,
+                        COALESCE(SUM(CASE WHEN payment_mode = 'split' THEN 1 ELSE 0 END), 0) as split_bill_count,
+                        COALESCE(SUM(split_cash_cents), 0) as cash_total_cents,
+                        COALESCE(SUM(split_online_cents), 0) as online_total_cents,
+                        COALESCE(SUM(CASE WHEN payment_mode = 'split' THEN total_cents ELSE 0 END), 0) as split_total_cents
+                     FROM bills",
+                    [],
+                    |r| {
+                        Ok((
+                            r.get::<_, i64>(0)?,
+                            r.get::<_, i64>(1)?,
+                            r.get::<_, i64>(2)?,
+                            r.get::<_, i64>(3)?,
+                            r.get::<_, i64>(4)?,
+                            r.get::<_, i64>(5)?,
+                        ))
+                    },
+                )
+                .unwrap_or((0, 0, 0, 0, 0, 0));
+
+            Ok(json!({
+                "cash": { "bill_count": row.0, "total_cents": row.3 },
+                "online": { "bill_count": row.1, "total_cents": row.4 },
+                "split": { "bill_count": row.2, "total_cents": row.5 }
+            }))
+        }),
+
+        _ if method == "DELETE" && base.starts_with("/bills/") => {
+            let id: i64 = base.trim_start_matches("/bills/").parse().map_err(|_| "Invalid id".to_string())?;
+            with_db(state.inner(), |conn| {
+                let changed = conn.execute("DELETE FROM bills WHERE id=?1", params![id]).map_err(|e| e.to_string())?;
+                if changed == 0 {
+                    return Err("Bill not found".to_string());
+                }
+                Ok(json!({ "ok": true }))
+            })
+        }
 
         _ if method == "GET" && base.starts_with("/bills/") => {
             let id: i64 = base.trim_start_matches("/bills/").parse().map_err(|_| "Invalid id".to_string())?;

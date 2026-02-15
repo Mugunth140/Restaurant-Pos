@@ -136,6 +136,23 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
 .billing-page { display: flex; flex-direction: column; min-height: calc(100vh - 48px); }
 .billing-split { flex: 1; grid-template-columns: minmax(0,1fr) 380px; align-items: start; }
 .billing-right { display: flex; flex-direction: column; gap: 0; position: sticky; top: 24px; }
+.payment-mode-card { margin-bottom: 12px; }
+.payment-mode-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.payment-mode-row .select { min-width: 170px; }
+.split-payment-grid { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.split-payment-grid .input { width: 100%; margin-top: 4px; }
+.split-tally {
+  grid-column: span 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.split-tally.ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.split-tally.warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
 .billing-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .billing-actions .button { flex: 1; min-width: 120px; }
 .bill-saved-banner { margin-top: 12px; padding: 10px 14px; border-radius: var(--radius-sm); background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-weight: 500; text-align: center; }
@@ -172,11 +189,12 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
 .history-table th { font-weight: 600; }
 /* distribute columns evenly for Bill History rows */
 .history-table .col-billno { width: 20%; }
-.history-table .col-money { width: 15%; }
+.history-table .col-money { width: 13%; }
+.history-table .col-payment { width: 12%; }
 /* explicitly size Total and Date for balanced spacing */
-.history-table col:nth-child(4) { width: 15%; }
-.history-table .col-date { width: 25%; }
-.history-table .col-actions { width: 10%; }
+.history-table col:nth-child(4) { width: 13%; }
+.history-table .col-date { width: 20%; }
+.history-table .col-actions { width: 16%; }
 /* Ensure headers and cells for money columns align to the right */
 .history-table th:nth-child(2),
 .history-table th:nth-child(3),
@@ -184,10 +202,10 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
 .history-table td:nth-child(2),
 .history-table td:nth-child(3),
 .history-table td:nth-child(4),
-.history-table td:nth-child(6) { text-align: right; }
+.history-table td:nth-child(7) { text-align: right; }
 /* add a small gap between Total and Date while keeping Date right-aligned */
-.history-table th:nth-child(5),
-.history-table td:nth-child(5) { text-align: right; padding-left: 12px; }
+.history-table th:nth-child(6),
+.history-table td:nth-child(6) { text-align: right; padding-left: 12px; }
 /* Bill number column should be left and vertically centered */
 .history-table th:nth-child(1),
 .history-table td:nth-child(1) { text-align: left; }
@@ -195,6 +213,14 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
 .history-table td:last-child { overflow: visible; text-overflow: clip; white-space: nowrap; }
 .history-table td:last-child::after { content: none !important; }
 .history-table td:last-child .button { white-space: nowrap; }
+.history-row-actions { display: inline-flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.history-delete-button { min-width: 32px; padding: 0 8px; }
+
+/* Analytics Page */
+.analytics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.analytics-card { display: flex; flex-direction: column; gap: 6px; }
+.analytics-amount { font-size: 22px; font-weight: 700; color: var(--accent); }
+.analytics-total { grid-column: span 3; }
 
 
 /* Bill Detail */
@@ -305,6 +331,12 @@ body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antial
   .split,.billing-split { grid-template-columns: 1fr; }
   .billing-right { position: static; }
   .add-item-form { grid-template-columns: 1fr; }
+  .payment-mode-row { flex-direction: column; align-items: stretch; }
+  .payment-mode-row .select { min-width: 0; width: 100%; }
+  .split-payment-grid { grid-template-columns: 1fr; }
+  .split-tally { grid-column: span 1; flex-direction: column; }
+  .analytics-grid { grid-template-columns: 1fr; }
+  .analytics-total { grid-column: span 1; }
   .backup-grid { grid-template-columns: 1fr; }
   .backup-settings { grid-template-columns: 1fr; }
   .backup-meta { grid-template-columns: 1fr; }

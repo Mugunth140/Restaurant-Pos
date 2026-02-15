@@ -15,12 +15,17 @@ export type BillItem = {
   line_total_cents: number;
 };
 
+export type PaymentMode = "cash" | "online" | "split";
+
 export type Bill = {
   id: number;
   bill_no: string;
   subtotal_cents: number;
   discount_rate_bps: number;
   discount_cents: number;
+  payment_mode?: PaymentMode;
+  split_cash_cents?: number;
+  split_online_cents?: number;
   total_cents: number;
   created_at: string;
 };

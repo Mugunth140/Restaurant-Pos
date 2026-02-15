@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
-import { apiGet, apiPost } from "../../data/api";
+import { apiDelete, apiGet, apiPost } from "../../data/api";
 import type { Bill, BillItem } from "../../data/types";
 import Pagination from "../components/Pagination";
 
@@ -53,6 +53,7 @@ const BillHistoryPage: React.FC = () => {
   const [items, setItems] = useState<BillItem[]>([]);
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const applyFilters = () => {
     let s = start, e = end;
@@ -122,6 +123,26 @@ const BillHistoryPage: React.FC = () => {
   };
 
   const hasFilters = appliedBillNo || appliedStart || appliedEnd;
+
+  const deleteBill = async (bill: Bill) => {
+    const ok = window.confirm(`Delete bill ${bill.bill_no}? This cannot be undone.`);
+    if (!ok) return;
+    setDeletingId(bill.id);
+    setPrintError(null);
+    try {
+      await apiDelete<{ ok: true }>(`/bills/${bill.id}`);
+      if (selected?.id === bill.id) {
+        setSelected(null);
+        setItems([]);
+      }
+      await load();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete bill.";
+      setPrintError(message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div>
@@ -205,6 +226,7 @@ const BillHistoryPage: React.FC = () => {
             <col className="col-money" />
             <col className="col-money" />
             <col className="col-money" />
+            <col className="col-payment" />
             <col className="col-date" />
             <col className="col-actions" />
           </colgroup>
@@ -214,6 +236,7 @@ const BillHistoryPage: React.FC = () => {
               <th className="text-right">Subtotal</th>
               <th className="text-right">Discount</th>
               <th className="text-right">Total</th>
+              <th>Payment</th>
               <th>Date</th>
               <th className="text-right"></th>
             </tr>
@@ -228,16 +251,28 @@ const BillHistoryPage: React.FC = () => {
                   <td className="text-right">{fmt(toSafeNumber(b.subtotal_cents))}</td>
                   <td className="text-right">-{fmt(discountCents)}</td>
                   <td className="text-right"><strong>{fmt(toSafeNumber(b.total_cents))}</strong></td>
+                  <td style={{ textTransform: "capitalize" }}>{b.payment_mode || "cash"}</td>
                   <td className="muted">{b.created_at}</td>
                   <td className="text-right">
-                    <button className="button button-sm" onClick={() => viewBill(b)}>View</button>
+                    <div className="history-row-actions">
+                      <button className="button button-sm" onClick={() => viewBill(b)}>View</button>
+                      <button
+                        className="button button-sm danger history-delete-button"
+                        onClick={() => { void deleteBill(b); }}
+                        disabled={deletingId === b.id}
+                        title="Delete bill"
+                        aria-label={`Delete bill ${b.bill_no}`}
+                      >
+                        {deletingId === b.id ? "..." : "🗑"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
             })}
             {bills.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="empty-state">No bills found</div>
                 </td>
               </tr>
