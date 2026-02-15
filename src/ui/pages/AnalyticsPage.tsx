@@ -8,18 +8,41 @@ type AnalyticsResponse = {
 };
 
 const fmt = (cents: number) => `₹${(cents / 100).toFixed(2)}`;
+const toDateInputUtc = (date: Date) => date.toISOString().slice(0, 10);
 
 const AnalyticsPage: React.FC = () => {
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState(() => toDateInputUtc(new Date()));
+  const [endDate, setEndDate] = useState(() => toDateInputUtc(new Date()));
+
+  const today = useMemo(() => toDateInputUtc(new Date()), []);
+  const minAllowedDate = useMemo(() => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - 3);
+    return toDateInputUtc(d);
+  }, []);
+
+  const normalizedRange = useMemo(() => {
+    let start = startDate || today;
+    let end = endDate || start;
+    if (start > end) [start, end] = [end, start];
+    if (start < minAllowedDate) start = minAllowedDate;
+    if (end > today) end = today;
+    return { start, end };
+  }, [endDate, minAllowedDate, startDate, today]);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await apiGet<AnalyticsResponse>("/analytics/payments");
+        const params = new URLSearchParams({
+          start: normalizedRange.start,
+          end: normalizedRange.end,
+        });
+        const res = await apiGet<AnalyticsResponse>("/analytics/payments?" + params.toString());
         setData(res);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load payments");
@@ -29,7 +52,7 @@ const AnalyticsPage: React.FC = () => {
     };
 
     void load();
-  }, []);
+  }, [normalizedRange.end, normalizedRange.start]);
 
   const total = useMemo(() => {
     if (!data) return 0;
@@ -39,6 +62,31 @@ const AnalyticsPage: React.FC = () => {
   return (
     <div>
       <div className="page-title">Payments</div>
+
+      <div className="card no-print">
+        <div className="history-filters">
+          <label className="muted" htmlFor="payments-start">From</label>
+          <input
+            id="payments-start"
+            className="input"
+            type="date"
+            min={minAllowedDate}
+            max={today}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <label className="muted" htmlFor="payments-end">To</label>
+          <input
+            id="payments-end"
+            className="input"
+            type="date"
+            min={minAllowedDate}
+            max={today}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+      </div>
 
       {error && (
         <div className="toast toast-error" style={{ marginBottom: 12 }}>

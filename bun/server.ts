@@ -62,6 +62,13 @@ const toDateOnly = (value: string | null): string | null => {
   return trimmed;
 };
 
+const toLocalDateOnly = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const listDbBackups = (targetDir: string) => {
   if (!existsSync(targetDir)) return [] as Array<{ name: string; path: string; modified_at: string; size_bytes: number }>;
   const entries = readdirSync(targetDir, { withFileTypes: true });
@@ -538,6 +545,20 @@ Bun.serve({
       }
 
       if (pathname === "/analytics/payments" && req.method === "GET") {
+        const now = new Date();
+        const today = toLocalDateOnly(now);
+        const minDateObj = new Date(now);
+        minDateObj.setDate(minDateObj.getDate() - 3);
+        const minAllowedDate = toLocalDateOnly(minDateObj);
+
+        let start = toDateOnly(searchParams.get("start")) ?? today;
+        let end = toDateOnly(searchParams.get("end")) ?? start;
+        if (start > end) [start, end] = [end, start];
+
+        if (start < minAllowedDate || end > today) {
+          return textRes("Date range must be within the last 3 days", 400);
+        }
+
         const row = db
           .prepare(
             `SELECT
@@ -547,9 +568,10 @@ Bun.serve({
                 COALESCE(SUM(split_cash_cents), 0) as cash_total_cents,
                 COALESCE(SUM(split_online_cents), 0) as online_total_cents,
                 COALESCE(SUM(CASE WHEN payment_mode = 'split' THEN total_cents ELSE 0 END), 0) as split_total_cents
-             FROM bills`,
+             FROM bills
+             WHERE created_at >= ?1 AND created_at <= ?2`,
           )
-          .get() as {
+          .get(`${start} 00:00:00`, `${end} 23:59:59`) as {
             cash_bill_count: number;
             online_bill_count: number;
             split_bill_count: number;

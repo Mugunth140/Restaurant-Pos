@@ -183,6 +183,16 @@ fn to_date_only(value: &str) -> Option<String> {
     }
 }
 
+fn utc_date_days_ago(days_back: i64) -> String {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let today_days = secs / 86400;
+    let (y, m, d) = days_to_ymd(today_days - days_back.max(0));
+    format!("{:04}-{:02}-{:02}", y, m, d)
+}
+
 // -- receipt formatting -------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
@@ -628,6 +638,29 @@ fn api_call(
         }),
 
         ("GET", "/analytics/payments") => with_db(state.inner(), |conn| {
+            let today = utc_date_days_ago(0);
+            let min_allowed = utc_date_days_ago(3);
+
+            let mut start = qs
+                .get("start")
+                .and_then(|v| to_date_only(v))
+                .unwrap_or_else(|| today.clone());
+            let mut end = qs
+                .get("end")
+                .and_then(|v| to_date_only(v))
+                .unwrap_or_else(|| start.clone());
+
+            if start > end {
+                std::mem::swap(&mut start, &mut end);
+            }
+
+            if start < min_allowed || end > today {
+                return Err("Date range must be within the last 3 days".to_string());
+            }
+
+            let start_ts = format!("{} 00:00:00", start);
+            let end_ts = format!("{} 23:59:59", end);
+
             let row = conn
                 .query_row(
                     "SELECT
@@ -637,8 +670,9 @@ fn api_call(
                         COALESCE(SUM(split_cash_cents), 0) as cash_total_cents,
                         COALESCE(SUM(split_online_cents), 0) as online_total_cents,
                         COALESCE(SUM(CASE WHEN payment_mode = 'split' THEN total_cents ELSE 0 END), 0) as split_total_cents
-                     FROM bills",
-                    [],
+                     FROM bills
+                     WHERE created_at >= ?1 AND created_at <= ?2",
+                    params![start_ts, end_ts],
                     |r| {
                         Ok((
                             r.get::<_, i64>(0)?,
