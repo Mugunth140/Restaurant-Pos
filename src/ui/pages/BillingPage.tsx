@@ -132,6 +132,35 @@ const BillingPage: React.FC = () => {
     }
   }, []);
 
+  const saveBillOnly = useCallback(async () => {
+    if (items.length === 0) return;
+    if (isSplitMode && !splitMatchesTotal) {
+      setPrintError("Split amount must exactly match bill total.");
+      return;
+    }
+    const billItems = items.map((item) => ({ ...item }));
+    setSaving(true);
+    setBillNo(null);
+    setPrintError(null);
+    try {
+      const res = await apiPost<{ bill_no: string }>("/bills", {
+        items: billItems,
+        discount_rate_bps: discountRateBps,
+        payment_mode: paymentMode,
+        split_cash_cents: isSplitMode ? splitCashCents : undefined,
+        split_online_cents: isSplitMode ? splitOnlineCents : undefined,
+      });
+      const payload = buildReceiptPayload(res.bill_no, billItems);
+      setLastReceipt(payload);
+      setBillNo(res.bill_no);
+      setItems([]);
+      setSplitCashInput("");
+      setSplitOnlineInput("");
+    } finally {
+      setSaving(false);
+    }
+  }, [buildReceiptPayload, discountRateBps, isSplitMode, items, paymentMode, splitCashCents, splitMatchesTotal, splitOnlineCents]);
+
   const generateBill = useCallback(async () => {
     if (items.length === 0) return;
     if (isSplitMode && !splitMatchesTotal) {
@@ -271,6 +300,9 @@ const BillingPage: React.FC = () => {
           <div className="card billing-actions">
             <button className="button success" onClick={generateBill} disabled={saving || printing || items.length === 0 || !splitMatchesTotal}>
               {saving ? "Saving" : printing ? "Printing" : "Generate Bill"}
+            </button>
+            <button className="button" onClick={() => { void saveBillOnly(); }} disabled={saving || printing || items.length === 0 || !splitMatchesTotal}>
+              {saving ? "Saving" : "Save Bill"}
             </button>
             <button className="button" onClick={() => { if (lastReceipt) void printReceipt(lastReceipt); }} disabled={!lastReceipt || printing || saving}>
               {printing ? "Printing" : "Reprint"}

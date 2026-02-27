@@ -1,9 +1,9 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync, statSync, writeFileSync, unlinkSync } from "node:fs";
-import { basename, join } from "node:path";
+import { cpSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 import db from "./db";
-import { generateReceiptPdf } from "./receipt-pdf";
 import type { ReceiptPayload } from "./receipt-pdf";
+import { generateReceiptPdf } from "./receipt-pdf";
 
 const PORT = Number(process.env.MEATEAT_POS_PORT || "7777");
 const DEFAULT_DB_DIR = join(process.cwd(), "db");
@@ -433,7 +433,7 @@ Bun.serve({
         let billNo = "";
 
         const insertBill = db.prepare(
-          "INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+          "INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,datetime('now','localtime'))",
         );
         const insertItem = db.prepare(
           "INSERT INTO bill_items(bill_id,product_id,product_name,unit_price_cents,qty,line_total_cents) VALUES(?1,?2,?3,?4,?5,?6)",
@@ -499,11 +499,11 @@ Bun.serve({
           vals.push(`%${billNoQ}%`);
         }
         if (startTs) {
-          clauses.push("created_at >= ?");
+          clauses.push("datetime(created_at) >= datetime(?)");
           vals.push(startTs);
         }
         if (endTs) {
-          clauses.push("created_at <= ?");
+          clauses.push("datetime(created_at) <= datetime(?)");
           vals.push(endTs);
         }
 
@@ -517,7 +517,7 @@ Bun.serve({
           .prepare(
             `SELECT id,bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents,created_at
              FROM bills ${where}
-             ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+             ORDER BY datetime(created_at) DESC, id DESC LIMIT ? OFFSET ?`,
           )
           .all(...vals, limit, (pg - 1) * limit);
 
@@ -569,7 +569,7 @@ Bun.serve({
                 COALESCE(SUM(split_online_cents), 0) as online_total_cents,
                 COALESCE(SUM(CASE WHEN payment_mode = 'split' THEN total_cents ELSE 0 END), 0) as split_total_cents
              FROM bills
-             WHERE created_at >= ?1 AND created_at <= ?2`,
+             WHERE datetime(created_at) >= datetime(?1) AND datetime(created_at) <= datetime(?2)`,
           )
           .get(`${start} 00:00:00`, `${end} 23:59:59`) as {
             cash_bill_count: number;

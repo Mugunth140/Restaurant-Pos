@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS bills (
   split_cash_cents INTEGER NOT NULL DEFAULT 0,
   split_online_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
 -- Schema upgrade for existing databases (safe to re-run)

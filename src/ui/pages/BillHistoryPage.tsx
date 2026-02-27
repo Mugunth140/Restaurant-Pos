@@ -10,6 +10,20 @@ const toSafeNumber = (value: unknown) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 };
+const formatDateTime = (raw: string) => {
+  if (!raw) return "";
+  // created_at is stored as local time: "YYYY-MM-DD HH:MM:SS"
+  const [datePart, timePart] = raw.split(" ");
+  if (!datePart) return raw;
+  const [y, m, d] = datePart.split("-");
+  const dateStr = `${d}/${m}/${y}`;
+  if (!timePart) return dateStr;
+  const [hh, mm] = timePart.split(":");
+  const h = Number(hh);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${dateStr} ${h12}:${mm} ${ampm}`;
+};
 
 type ReceiptPayload = {
   billNo: string;
@@ -252,7 +266,7 @@ const BillHistoryPage: React.FC = () => {
                   <td className="text-right">-{fmt(discountCents)}</td>
                   <td className="text-right"><strong>{fmt(toSafeNumber(b.total_cents))}</strong></td>
                   <td style={{ textTransform: "capitalize" }}>{b.payment_mode || "cash"}</td>
-                  <td className="muted">{b.created_at}</td>
+                  <td className="muted">{formatDateTime(b.created_at)}</td>
                   <td className="text-right">
                     <div className="history-row-actions">
                       <button className="button button-sm" onClick={() => viewBill(b)}>View</button>
