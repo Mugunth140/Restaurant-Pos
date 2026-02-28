@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS products (
   category_id INTEGER,
   price_cents INTEGER NOT NULL,
   is_available INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS bills (
     split_cash_cents INTEGER NOT NULL DEFAULT 0,
     split_online_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_bills_created_at ON bills(created_at);
 CREATE INDEX IF NOT EXISTS idx_bills_bill_no ON bills(bill_no);
@@ -181,16 +181,6 @@ fn to_date_only(value: &str) -> Option<String> {
     } else {
         None
     }
-}
-
-fn utc_date_days_ago(days_back: i64) -> String {
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
-    let today_days = secs / 86400;
-    let (y, m, d) = days_to_ymd(today_days - days_back.max(0));
-    format!("{:04}-{:02}-{:02}", y, m, d)
 }
 
 // -- receipt formatting -------------------------------------------------------
@@ -523,7 +513,7 @@ fn api_call(
             let item_no = raw_no.and_then(|n| if n >= 1 && n <= 9999 { Some(n) } else { None });
             with_db(state.inner(), |conn| {
                 let cat_id = resolve_category_id(conn, cat);
-                conn.execute("UPDATE products SET item_no=?1, name=?2, category_id=?3, price_cents=?4, updated_at=datetime('now') WHERE id=?5", params![item_no, name, cat_id, price, id]).map_err(|e| {
+                conn.execute("UPDATE products SET item_no=?1, name=?2, category_id=?3, price_cents=?4, updated_at=datetime('now','localtime') WHERE id=?5", params![item_no, name, cat_id, price, id]).map_err(|e| {
                     let m = e.to_string().to_lowercase();
                     if m.contains("unique") && m.contains("item_no") { "Item No already in use".to_string() } else { e.to_string() }
                 })?;
@@ -595,7 +585,7 @@ fn api_call(
                 tx.execute("UPDATE settings SET value = CAST(value AS INTEGER) + 1 WHERE key = 'bill_seq'", []).map_err(|e| e.to_string())?;
                 let seq: i64 = tx.query_row("SELECT value FROM settings WHERE key = 'bill_seq'", [], |r| r.get::<_, String>(0).map(|v| v.parse::<i64>().unwrap_or(1))).unwrap_or(1);
                 let bill_no = format!("MNE-{:06}", seq);
-                tx.execute("INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)", params![bill_no, subtotal, dr, dc, payment_mode, split_cash_cents, split_online_cents, total]).map_err(|e| e.to_string())?;
+                tx.execute("INSERT INTO bills(bill_no,subtotal_cents,discount_rate_bps,discount_cents,payment_mode,split_cash_cents,split_online_cents,total_cents,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,datetime('now','localtime'))", params![bill_no, subtotal, dr, dc, payment_mode, split_cash_cents, split_online_cents, total]).map_err(|e| e.to_string())?;
                 let bill_id = tx.last_insert_rowid();
                 for it in &items {
                     tx.execute("INSERT INTO bill_items(bill_id,product_id,product_name,unit_price_cents,qty,line_total_cents) VALUES(?1,?2,?3,?4,?5,?6)", params![bill_id, it.pid, it.pname, it.unit, it.qty, it.lt]).map_err(|e| e.to_string())?;
@@ -638,8 +628,12 @@ fn api_call(
         }),
 
         ("GET", "/analytics/payments") => with_db(state.inner(), |conn| {
-            let today = utc_date_days_ago(0);
-            let min_allowed = utc_date_days_ago(3);
+            let today = conn
+                .query_row("SELECT date('now','localtime')", [], |r| r.get::<_, String>(0))
+                .unwrap_or_else(|_| "1970-01-01".to_string());
+            let min_allowed = conn
+                .query_row("SELECT date('now','localtime','-3 days')", [], |r| r.get::<_, String>(0))
+                .unwrap_or_else(|_| today.clone());
 
             let mut start = qs
                 .get("start")
